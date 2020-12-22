@@ -3,8 +3,10 @@
 @yhu: adapted from https://gitlab.esss.lu.se/ics-infrastructure/py-epicsarchiver 
 @Original author: Benjamin Bertrand
 
-Documentation on all methods in the class ArchiverAppliance:  
+The main purpose of this module is to provide BPLs as described in:
 https://slacmshankar.github.io/epicsarchiver_docs/api/mgmt_scriptables.html
+
+Documentation on all methods in the class ArchiverAppliance:  
 http://slacmshankar.github.io/epicsarchiver_docs/api/org/epics/archiverappliance/
 mgmt/bpl/package-summary.html
 """
@@ -54,6 +56,12 @@ class ArchiverAppliance:
         self._data_url = None
         self.session = requests.Session()
         #self.session.auth = ('user', 'pass')
+ 
+    def _return_json(self, r):
+        try:
+            return r.json() # for > python-2.7.3
+        except:
+            return r.json   # for Debian 7.11: python-2.7.3, requests-0.12.1
 
     def request(self, method, *args, **kwargs):
         r"""Sends a request using the session
@@ -94,10 +102,7 @@ class ArchiverAppliance:
         """EPICS Archiver Appliance information"""
         if self._info is None:            
             r = self.get("/getApplianceInfo")
-            try:
-                self._info = r.json() #> python-2.7.3  
-            except:
-                self._info = r.json # Debian 7.11: python-2.7.3, requests-0.12.1 
+            self._info = self._return_json(r)
         return self._info
 
     @property
@@ -130,10 +135,7 @@ class ArchiverAppliance:
         """
         try:
             r = self.get("/getAllExpandedPVNames")
-            try:
-                return r.json()
-            except:
-                return r.json
+            return self._return_json(r)
         except:
             url = self.mgmt_url + 'getAllExpandedPVNames'
             return(self.request_by_urllib2(url))
@@ -158,10 +160,7 @@ class ArchiverAppliance:
         if regex is not None:
             params["regex"] = regex
         r = self.get("/getAllPVs", params=params)
-        try:
-            return r.json()
-        except:
-            return r.json
+        return self._return_json(r)
 
     def get_pv_status(self, pv):
         """Return the status of a PV
@@ -171,10 +170,7 @@ class ArchiverAppliance:
         :return: list of dict with the status of the matching PVs
         """
         r = self.get("/getPVStatus", params={"pv": pv})
-        try:
-            return r.json()
-        except:
-            return r.json
+        return self._return_json(r)
 
     def get_pv_status_from_files(self, files, appliance=None):
         """Return the status of PVs from a list of files
@@ -197,10 +193,7 @@ class ArchiverAppliance:
         if isinstance(pvs, list):
             pvs = ",".join(pvs)
         r = self.post("/unarchivedPVs", data={"pv": pvs})
-        try:
-            return r.json()
-        except:
-            return r.json
+        return self._return_json(r)
 
     def get_unarchived_pvs_from_files(self, files, appliance=None):
         """Return the list of unarchived PVs from a list of files
@@ -230,10 +223,7 @@ class ArchiverAppliance:
         params.update(kwargs)
         try:
             r = self.get("/archivePV", params=params)
-            try:
-                return r.json()
-            except:
-                return r.json
+            return self._return_json(r)
         except:
             pvname = urllib.urlencode({'pv' : pv})
             url = self.mgmt_url + 'archivePV?' + pvname
@@ -246,10 +236,7 @@ class ArchiverAppliance:
         :return: list of submitted PVs
         """
         r = self.post("/archivePV", json=pvs)
-        try:
-            return r.json()
-        except:
-            return r.json
+        return self._return_json(r)
 
     def archive_pvs_from_files(self, files, appliance=None):
         """Archive PVs from a list of files
@@ -273,10 +260,7 @@ class ArchiverAppliance:
             r = self.post(endpoint, data=pv)
         else:
             r = self.get(endpoint, params={"pv": pv})
-        try:
-            return r.json()
-        except:
-            return r.json
+        return self._return_json(r)
 
     def request_by_urllib2(self, url):
         """Another way to make a request to the Archiver server. It solves the
@@ -325,10 +309,7 @@ class ArchiverAppliance:
         """
         try:
             r = self.get("/abortArchivingPV", params={"pv": pv})
-            try:
-                return r.json()
-            except:
-                return r.json
+            return self._return_json(r)
         except:
             pvname = urllib.urlencode({'pv' : pv})
             url = self.mgmt_url + 'abortArchivingPV?' + pvname
@@ -346,10 +327,7 @@ class ArchiverAppliance:
         """
         try:
             r = self.get("/deletePV", params={"pv": pv, "delete_data": delete_data})
-            try:
-                return r.json()
-            except:
-                return r.json
+            return self._return_json(r)
         except:
             url = self.mgmt_url + '/deletePV?pv=' + urllib.quote_plus(pv) + \
             "&deleteData=true"
@@ -365,10 +343,7 @@ class ArchiverAppliance:
         :return: list of submitted PVs
         """
         r = self.get("/renamePV", params={"pv": pv, "newname": newname})
-        try:
-            return r.json()
-        except:
-            return r.json
+        return self._return_json(r)
 
     def update_pv(self, pv, samplingperiod, samplingmethod=None):
         """Change the archival parameters for a PV
@@ -384,10 +359,7 @@ class ArchiverAppliance:
             params["samplingmethod"] = samplingmethod
         try:
             r = self.get("/changeArchivalParameters", params=params)
-            try:
-                return r.json()
-            except:
-                return r.json
+            return self._return_json(r)
         except:            
             url = self.mgmt_url + 'changeArchivalParameters?pv=' + \
             urllib.quote_plus(pv) + "&samplingperiod=samplingperiod" + \
@@ -446,7 +418,7 @@ class ArchiverAppliance:
         if not utils.check_result(result, "Error while pausing {}".format(pv)):
             return
         result = self.rename_pv(pv, new)
-        if not utils.check_result(result, "Error while renaming {} to {}").format(pv, new):
+        if not utils.check_result(result,"Error: renaming {} to {}").format(pv,new):
             return
         result = self.resume_pv(new)
         if not utils.check_result(result, "Error while resuming {}".format(new)):
@@ -465,3 +437,65 @@ class ArchiverAppliance:
         pvs = utils.get_rename_pvs_from_files(files)
         for (current, new) in pvs:
             self.pause_rename_resume_pv(current, new, debug)
+    
+    def get_pv_type_info(self, pv):
+        """Get the type info for a given PV. In the AA terminology, 
+        the PVTypeInfo contains the various archiving parameters for a PV.
+
+        :param pv: The name of the pv.
+        :return: a dict with details (hostname, RTYP, ...) about the PV
+        """
+        r = self.get("/getPVTypeInfo", params={"pv": pv})
+        return self._return_json(r)
+
+    def get_never_connected_pvs(self):
+        """Get a list of PVs that have never connected. This corresponds to 
+        the report of "PV's that may not exist" on the web interface
+
+        :return: a list of dicts including keys of pvName, requestTime, etc.  
+        """
+        r = self.get("/getNeverConnectedPVs")
+        return self._return_json(r)
+
+    def get_currently_disconnected_pvs(self):
+        """Get a list of PVs that are currently disconnected.
+
+        :return: a list of dicts including keys of pvName, lastKnownEvent, etc.  
+        """
+        r = self.get("/getCurrentlyDisconnectedPVs")
+        return self._return_json(r)
+
+    def get_event_rate_report(self, limit=1000):
+        """Return a list of dicts of PVs sorted by descending event rate.
+
+        :param limit: Limit this report to 'limit' PVs per appliance in the cluster.
+        :return: a list of dicts with keys of pvName and eventRate.
+        """
+        r = self.get("/getEventRateReport", params={"limit": limit})  
+        return self._return_json(r)
+
+    def get_storage_rate_report(self, limit=1000):
+        """Return a list of dicts of PVs sorted by descending storage rate.
+
+        :param limit: Limit this report to 'limit' PVs per appliance in the cluster.
+        :return: a list of dicts with keys of pvName, storageRate_GBperYear, etc.
+        """
+        r = self.get("/getStorageRateReport", params={"limit": limit})  
+        return self._return_json(r)
+
+    def get_paused_pvs_report(self, limit=None):
+        """Return a list of PVs that are currently paused.
+
+        :param limit: Optional. Limit this report to 'limit' PVs per appliance.
+        :return: a list of dicts with keys of pvName, modificationTime, etc.
+        """
+        r = self.get("/getPausedPVsReport", )  
+        return self._return_json(r)
+
+    def get_archived_waveforms(self):
+        """Get a list of waveform PVs that are currently being archived.
+
+        :return: a list of dicts including keys of pvName, elementCount, etc.  
+        """
+        r = self.get("/getArchivedWaveforms")
+        return self._return_json(r)

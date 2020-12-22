@@ -140,7 +140,7 @@ def get_allPVs(pv="*", regex="*", limit=-1, do_return=False):
         _report_pvs(pvs, "total PVs")
 
 
-def get_waveformPVs(do_log=False, do_return=False):
+def report_waveformPVs(do_log=False, do_return=False):
     '''- Get a list of dicts of waveform PVs that are currently being archived.
     record types could be: waveform, aSub, compress, etc.
     {u'elementCount': u'128', u'samplingperiod': u'1.0', 
@@ -164,7 +164,7 @@ def get_waveformPVs(do_log=False, do_return=False):
         _report_pvs(results, "waveform PVs")
 
 
-def get_storage_rate_report(limit=1000, do_return=False):
+def report_storage_rate(limit=1000, do_return=False):
     '''- Return a list of dicts of PVs sorted by descending storage rate.
     limit: Limit this report to this many PVs per appliance in the cluster. 
         Optional, if unspecified, there are no limits enforced.
