@@ -8,7 +8,7 @@ from __future__ import print_function
 
 import os
 import sys
-import urllib
+#import urllib
 #import urllib2
 import json
 from datetime import datetime
@@ -204,8 +204,8 @@ def get_pvs_file_info(pvs, report_zero_size=True, lts_path='/DATA/lts/ArchiverSt
 
         pv_file_info[pv+'(total)'] = total_GB # total file size (GB) for  pv 
         if report_zero_size:
-			if not total_GB: 
-			    print(pv)
+            if not total_GB: 
+                print(pv)
         #pv_file_info[pv+'(file_names)'] = file_names
 
         pvs_file_info.append(pv_file_info)

@@ -1,5 +1,14 @@
 # -*- coding: utf-8 -*-
-"""Main module."""
+"""
+@yhu: adapted from https://gitlab.esss.lu.se/ics-infrastructure/py-epicsarchiver 
+@Original author: Benjamin Bertrand
+
+Documentation on all methods in the class ArchiverAppliance:  
+https://slacmshankar.github.io/epicsarchiver_docs/api/mgmt_scriptables.html
+http://slacmshankar.github.io/epicsarchiver_docs/api/org/epics/archiverappliance/
+mgmt/bpl/package-summary.html
+"""
+
 import sys
 try:
     import urllib.parse as urlparse #py3
@@ -7,14 +16,19 @@ except ImportError:
     import urlparse #py2
 import requests
 import pandas as pd
-#from . import utils
 import utils
+
+# the following three libraries can be used to solve
+## "HTTPError: 403 Client Error" on Debian 7 / Python 2.7.3 / requests 0.12.1  
 import urllib
 import urllib2
 import json
 
+import socket
+localhost = socket.getfqdn() # it seems full hostname is required for AA
+
 class ArchiverAppliance:
-    """EPICS Arcvhier Appliance client
+    """EPICS Arcvhier Appliance (AA) client
 
     Hold a session to the Archiver Appliance web application.
 
@@ -24,13 +38,15 @@ class ArchiverAppliance:
     Basic Usage::
 
         >>> from epicsarchiver import ArchiverAppliance
+        >>> import datetime
         >>> archappl = ArchiverAppliance('archiver-01.tn.esss.lu.se')
         >>> print(archappl.version)
         >>> archappl.get_pv_status(pv='BPM*')
-        >>> df = archappl.get_data('my:pv', start='2018-07-04 13:00', end=datetime.utcnow())
+        >>> _end = datetime.utcnow()
+        >>> df = archappl.get_data('my:pv', start='2018-07-04 13:00', end=_end)
     """
 
-    def __init__(self, hostname="localhost", port=17665):
+    def __init__(self, hostname=localhost, port=17665):
         self.hostname = hostname
         #self.mgmt_url = f"http://{hostname}:{port}/mgmt/bpl/"  # py3
         self.mgmt_url = "http://{}:{}/mgmt/bpl/".format(hostname, port) #py2
@@ -47,8 +63,8 @@ class ArchiverAppliance:
         :param \*\*kwargs: Optional keyword arguments
         :return: :class:`requests.Response <Response>` object
         """
-        headers = {'content-type': 'application/json'}
-        r = self.session.request(method, *args, headers=headers, **kwargs)
+        #headers = {'content-type': 'application/json'}
+        r = self.session.request(method, *args, **kwargs)
         r.raise_for_status()
         return r
 
@@ -61,7 +77,6 @@ class ArchiverAppliance:
         """
         #url = urllib.parse.urljoin(self.mgmt_url, endpoint.lstrip("/"))
         url = urlparse.urljoin(self.mgmt_url, endpoint.lstrip("/"))
-        #print(url)
         return self.request("GET", url, **kwargs)
 
     def post(self, endpoint, **kwargs):
@@ -77,13 +92,12 @@ class ArchiverAppliance:
     @property
     def info(self):
         """EPICS Archiver Appliance information"""
-        if self._info is None:
-            # http://slacmshankar.github.io/epicsarchiver_docs/api/org/epics/archiverappliance/mgmt/bpl/GetApplianceInfo.html
+        if self._info is None:            
             r = self.get("/getApplianceInfo")
             try:
-                self._info = r.json() # > python-2.7.3  
+                self._info = r.json() #> python-2.7.3  
             except:
-                self._info = r.json  # <= python-2.7.3 & requests-0.12.1 (Debian 7)
+                self._info = r.json # Debian 7.11: python-2.7.3, requests-0.12.1 
         return self._info
 
     @property
@@ -104,7 +118,8 @@ class ArchiverAppliance:
         return self._data_url
 
     def get_all_expanded_pvs(self):
-        """Return all expanded PV names in the cluster.
+        """Return all expanded PV names in the cluster. 
+        (yhu-2020-Dec-22: it seems this method does not work)
 
         This is targeted at automation and should return the PVs
         being archived, the fields, .VAL's, aliases and PV's in
@@ -113,12 +128,15 @@ class ArchiverAppliance:
 
         :return: list of expanded PV names
         """
-        # http://slacmshankar.github.io/epicsarchiver_docs/api/org/epics/archiverappliance/mgmt/bpl/GetAllExpandedPVNames.html
-        r = self.get("/getAllExpandedPVNames")
         try:
-            return r.json()
+            r = self.get("/getAllExpandedPVNames")
+            try:
+                return r.json()
+            except:
+                return r.json
         except:
-            return r.json
+            url = self.mgmt_url + 'getAllExpandedPVNames'
+            return(self.request_by_urllib2(url))
 
     def get_all_pvs(self, pv=None, regex=None, limit=500):
         """Return all the PVs in the cluster
@@ -134,7 +152,6 @@ class ArchiverAppliance:
                       set limit to –1. Default to 500.
         :return: list of PV names
         """
-        # http://slacmshankar.github.io/epicsarchiver_docs/api/org/epics/archiverappliance/mgmt/bpl/GetAllPVs.html
         params = {"limit": limit}
         if pv is not None:
             params["pv"] = pv
@@ -153,7 +170,6 @@ class ArchiverAppliance:
                    Can be a GLOB wildcards or multiple PVs as a comma separated list.
         :return: list of dict with the status of the matching PVs
         """
-        # http://slacmshankar.github.io/epicsarchiver_docs/api/org/epics/archiverappliance/mgmt/bpl/GetPVStatusAction.html
         r = self.get("/getPVStatus", params={"pv": pv})
         try:
             return r.json()
@@ -173,11 +189,11 @@ class ArchiverAppliance:
 
     def get_unarchived_pvs(self, pvs):
         """Return the list of unarchived PVs out of PVs specified in pvs
+        (yhu-2020-Dec-22: it seems this method does not work)
 
         :param pvs: a list of PVs either in CSV format or as a python string list
         :return: list of unarchived PV names
         """
-        # https://slacmshankar.github.io/epicsarchiver_docs/api/org/epics/archiverappliance/mgmt/bpl/UnarchivedPVsAction.html
         if isinstance(pvs, list):
             pvs = ",".join(pvs)
         r = self.post("/unarchivedPVs", data={"pv": pvs})
@@ -210,23 +226,25 @@ class ArchiverAppliance:
             - appliance
         :return: list of submitted PVs
         """
-        # http://slacmshankar.github.io/epicsarchiver_docs/api/org/epics/archiverappliance/mgmt/bpl/ArchivePVAction.html
         params = {"pv": pv}
         params.update(kwargs)
-        print(params)
-        r = self.get("/archivePV", params=params)
         try:
-            return r.json()
+            r = self.get("/archivePV", params=params)
+            try:
+                return r.json()
+            except:
+                return r.json
         except:
-            return r.json
-
+            pvname = urllib.urlencode({'pv' : pv})
+            url = self.mgmt_url + 'archivePV?' + pvname
+            return(self.request_by_urllib2(url))
+            
     def archive_pvs(self, pvs):
         """Archive a list of PVs
 
         :param pvs: list of PVs (as dict) to archive
         :return: list of submitted PVs
         """
-        # http://slacmshankar.github.io/epicsarchiver_docs/api/org/epics/archiverappliance/mgmt/bpl/ArchivePVAction.html
         r = self.post("/archivePV", json=pvs)
         try:
             return r.json()
@@ -260,6 +278,15 @@ class ArchiverAppliance:
         except:
             return r.json
 
+    def request_by_urllib2(self, url):
+        """Another way to make a request to the Archiver server. It solves the
+        problem "HTTPError: 403 Client Error"
+        """
+        req = urllib2.Request(url)
+        response = urllib2.urlopen(req)
+        the_page = response.read()
+        return json.loads(the_page)
+
     def pause_pv(self, pv):
         """Pause the archiving of a PV(s)
 
@@ -267,18 +294,14 @@ class ArchiverAppliance:
                    Can be a GLOB wildcards or a list of comma separated names.
         :return: list of submitted PVs
         """
-        # http://slacmshankar.github.io/epicsarchiver_docs/api/org/epics/archiverappliance/mgmt/bpl/PauseArchivingPV.html
-        #try:
-        return self._get_or_post("/pauseArchivingPV", pv) #HTTPError: 403 Client Error
-        #except:
-        #    pvname = urllib.urlencode({'pv' : pv})
-        #    url = self.mgmt_url + 'pauseArchivingPV?' + pvname
-        #    print("Pausing request for pv %s using url %s"%(pv, url))
-        #    req = urllib2.Request(url)
-        #    response = urllib2.urlopen(req)
-        #    the_page = response.read()
-        #    pauseResponse = json.loads(the_page)
-        #    return pauseResponse
+        try:
+            # on Debian 7: HTTPError: 403 Client Error
+            return self._get_or_post("/pauseArchivingPV", pv) 
+        except:
+            # on Debian 7: the following works
+            pvname = urllib.urlencode({'pv' : pv})
+            url = self.mgmt_url + 'pauseArchivingPV?' + pvname
+            return(self.request_by_urllib2(url))
 
     def resume_pv(self, pv):
         """Resume the archiving of a PV(s)
@@ -287,8 +310,12 @@ class ArchiverAppliance:
                    Can be a GLOB wildcards or a list of comma separated names.
         :return: list of submitted PVs
         """
-        # http://slacmshankar.github.io/epicsarchiver_docs/api/org/epics/archiverappliance/mgmt/bpl/ResumeArchivingPV.html
-        return self._get_or_post("/resumeArchivingPV", pv)
+        try:
+            return self._get_or_post("/resumeArchivingPV", pv)
+        except:
+            pvname = urllib.urlencode({'pv' : pv})
+            url = self.mgmt_url + 'resumeArchivingPV?' + pvname
+            return(self.request_by_urllib2(url))
 
     def abort_pv(self, pv):
         """Abort any pending requests for archiving this PV.
@@ -296,12 +323,16 @@ class ArchiverAppliance:
         :param pv: name of the pv.
         :return: list of submitted PVs
         """
-        # http://slacmshankar.github.io/epicsarchiver_docs/api/org/epics/archiverappliance/mgmt/bpl/AbortArchiveRequest.html
-        r = self.get("/abortArchivingPV", params={"pv": pv})
         try:
-            return r.json()
+            r = self.get("/abortArchivingPV", params={"pv": pv})
+            try:
+                return r.json()
+            except:
+                return r.json
         except:
-            return r.json
+            pvname = urllib.urlencode({'pv' : pv})
+            url = self.mgmt_url + 'abortArchivingPV?' + pvname
+            return(self.request_by_urllib2(url))            
 
     def delete_pv(self, pv, delete_data=False):
         """Stop archiving the specified PV.
@@ -313,22 +344,16 @@ class ArchiverAppliance:
                             Default to False.
         :return: list of submitted PVs
         """
-        # http://slacmshankar.github.io/epicsarchiver_docs/api/org/epics/archiverappliance/mgmt/bpl/DeletePV.html
         try:
             r = self.get("/deletePV", params={"pv": pv, "delete_data": delete_data})
-            #r = self.get("/deletePV", params={"pv": pv, "deleteData": delete_data})
             try:
                 return r.json()
             except:
                 return r.json
         except:
-            url = self.mgmt_url + '/deletePV?pv=' + urllib.quote_plus(pv) + "&deleteData=true"
-            req = urllib2.Request(url)
-            response = urllib2.urlopen(req)
-            the_page = response.read()
-            deletePVResponse = json.loads(the_page)
-            return deletePVResponse
-
+            url = self.mgmt_url + '/deletePV?pv=' + urllib.quote_plus(pv) + \
+            "&deleteData=true"
+            return self.request_by_urllib2(url)
 
     def rename_pv(self, pv, newname):
         """Rename this pv to a new name.
@@ -339,7 +364,6 @@ class ArchiverAppliance:
         :param newname: new name of the pv
         :return: list of submitted PVs
         """
-        # https://slacmshankar.github.io/epicsarchiver_docs/api/org/epics/archiverappliance/mgmt/bpl/RenamePVAction.html
         r = self.get("/renamePV", params={"pv": pv, "newname": newname})
         try:
             return r.json()
@@ -348,24 +372,32 @@ class ArchiverAppliance:
 
     def update_pv(self, pv, samplingperiod, samplingmethod=None):
         """Change the archival parameters for a PV
+        (yhu-2020-Dec-22: it seems this method does not work)
 
         :param pv: name of the pv.
         :param samplingperiod: the new sampling period in seconds.
         :param samplingmethod: the new sampling method [SCAN|MONITOR]
         :return: list of submitted PV
         """
-        # http://slacmshankar.github.io/epicsarchiver_docs/api/org/epics/archiverappliance/mgmt/bpl/ChangeArchivalParamsAction.html
         params = {"pv": pv, "samplingperiod": samplingperiod}
         if samplingmethod:
             params["samplingmethod"] = samplingmethod
-        r = self.get("/changeArchivalParameters", params=params)
         try:
-            return r.json()
-        except:
-            return r.json
+            r = self.get("/changeArchivalParameters", params=params)
+            try:
+                return r.json()
+            except:
+                return r.json
+        except:            
+            url = self.mgmt_url + 'changeArchivalParameters?pv=' + \
+            urllib.quote_plus(pv) + "&samplingperiod=samplingperiod" + \
+            "&samplingmethod=samplingmethod"
+            return self.request_by_urllib2(url)
 
     def get_data(self, pv, start, end):
         """Retrieve archived data
+        (yhu-2020-Dec-22: it does not work; 
+        TypeError: 'timespec' is an invalid keyword argument for this function)
 
         :param pv: name of the pv.
         :param start: start time. Can be a string or `datetime.datetime` object.
