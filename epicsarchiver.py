@@ -9,6 +9,8 @@ https://slacmshankar.github.io/epicsarchiver_docs/api/mgmt_scriptables.html
 Documentation on all methods in the class ArchiverAppliance:  
 http://slacmshankar.github.io/epicsarchiver_docs/api/org/epics/archiverappliance/
 mgmt/bpl/package-summary.html
+
+Packages required: python-requests, python-pandas, 
 """
 
 import sys

@@ -1,27 +1,32 @@
 # -*- coding: utf-8 -*-
 '''
-This Python module provides a few functions to manipulate the Archiver Appliance (AA) 
-Packages required: python-requests; python-pandas
+The purpose of this module is to provide a higher level of functions, by utilizing 
+the class methods implemented in epicsarchiver.py, to more easily manipulate AA
+
+Basic Usage::
+    >>> import archiver_appliance as aa
+    >>> import datetime
+    >>> archappl = ArchiverAppliance('archiver-01.tn.esss.lu.se')
+    >>> print(archappl.version)
+    >>> archappl.get_pv_status(pv='BPM*')
+    >>> _end = datetime.utcnow()
+    >>> df = archappl.get_data('my:pv', start='2018-07-04 13:00', end=_end)
+        
 '''
 
 from __future__ import print_function
-
 import os
 import sys
-#import urllib
-#import urllib2
-import json
 from datetime import datetime
 import time
 import traceback
 import re
 import glob
-#import subprocess
 from collections import OrderedDict as odict
 
 from epicsarchiver import ArchiverAppliance
 
-# get the Archiver FULL hostname: localhost or hostname defined in aa.conf 
+# get the Archiver's FULL hostname: localhost or hostname defined in aa.conf 
 try:
     import socket
     localhost = socket.getfqdn()
@@ -70,143 +75,158 @@ archiver.get_unarchived_pvs_from_files  archiver.version
 '''
 
 
-def _log_pvs(pvs, file_prefix):
-    '''save pvs to a file'''
+def _log(results, file_prefix, one_line_per_pvinfo=True):
+    '''save results, which may include pv names as well as other information, 
+    to a text file. one_line_per_pvinfo makes .txt file more easier to be 
+    analyzied by other software such as Microsoft Excel 
+    '''
     timestamp = time.strftime("-%Y%b%d_%H%M%S")
     home_dir = os.path.expanduser("~")
     _file_prefix = str(file_prefix).replace(" ", "-")
     file_name = home_dir + "/" + _file_prefix + str(timestamp)+".txt"
+    
     with open(str(file_name), 'w') as fd:
-        if isinstance(pvs[0], unicode):#string
-            for pv in pvs:
-                fd.write(str(pv) + "\n")
-        elif isinstance(pvs[0], odict):
-            for pv_dict in pvs:
+        if isinstance(results[0], unicode):#string
+            for result in results:
+                fd.write(str(result) + "\n")
+        elif isinstance(results[0], odict) or isinstance(results[0], dict):
+            for pv_dict in results:
                 for (k, v) in pv_dict.iteritems():
-                    fd.write(str(k+":\t")+str(v)+"\n")
-                #fd.write("\n")
+                    fd.write(str(k+"\t")+str(v)+"\t")
+                    if not one_line_per_pvinfo:
+                        fd.write("\n")
+                fd.write("\n")
 
-    print("{} PVs have been written to the file {}".format(len(pvs), file_name))
+    print("{} PVs have been written to the file {}\n".format(len(results), file_name))
 
 
-def _report_pvs(results, desc, sort=True):
-    '''report PV names and save them to a file if confirmed'''
+def _get_pvnames(results, sort=True):
+    '''get PV names only, no other information'''
     if not results:
-        print("No %s\n"%str(desc))
+        print("No PVs found\n")
         return
 
-    pvNames=results
+    pvnames=results
     if isinstance(results[0], dict): 
-        pvNames = [dic['pvName'] for dic in results]
+        pvnames = [dic['pvName'] for dic in results]
     if sort:
-        pvNames.sort()
+        pvnames.sort()
 
-    if len(pvNames) > 10:
-        pvs_4print=pvNames[:9]
+    if len(pvnames) > 10:
+        pvs_4print=pvnames[:9]
     else:
-        pvs_4print=pvNames
+        pvs_4print=pvnames
     for pv in pvs_4print:
         print(pv)
-    print("...\n%d %s\n"%(len(pvNames), str(desc)))
+    print("...\n%d PVs\n"%len(pvnames))
 
-    answer = raw_input("Do you want to write these PVs to a file? Type yes or no: ")
-    if (answer.upper() == "YES"):
-        _log_pvs(pvNames, desc)
-
-    return pvNames
+    return pvnames
 
 
-def get_pvs_from_file(filename):
+def get_pvnames_from_file(filename):
+    '''pvnames in 'filename' should be listed as one column'''
     with open(filename, "r") as fd:
         lines = fd.readlines()
-        pvList = []
+        pvnameList = []
         for line in lines:
             if line.startswith("#") or line == "":
             # Remove empty lines and lines that start with "#"
                 continue
-            pvList.append(str(line).strip())
+            pvnameList.append(str(line).strip())
             
-    pvs = set(pvList) # remove duplicated PVs
+    pvnames = set(pvnameList) # remove duplicated PVs
     print("get %d PVs from %s"%(len(pvs), filename))
-    return pvs
+    return list(pvnames)
+
+
+def report_pvnames(pattern='*', regex='*', limit=500, return_pvnames=False):
+    '''Get pv names (up to the max. number 'limit') by 'pattern' and 'regex', then 
+    write them to a file. If return_pvnames is True, then report & return pvnames
+    '''
+    pvs = archiver.get_all_pvs(pv=pattern, regex=regex, limit=limit)
     
-
-def get_allPVs(pv="*", regex="*", limit=-1, do_return=False):
-    '''get_all_pvs(self, pv=None, regex=None, limit=500)'''
-    pvs = archiver.get_all_pvs(pv=pv, regex=regex, limit=limit)
-    if do_return:
-        return _report_pvs(pvs, "total PVs")
+    if pattern == "*":
+        file_prefix = "all pvnames"
     else:
-        _report_pvs(pvs, "total PVs")
+        file_prefix = str(pattern) + "-" + str(limit) + '-pvnames' 
+    _log(pvs, file_prefix)
+    
+    if return_pvnames:
+        return _get_pvnamess(pvs)
+    else:
+        _get_pvnames(pvs) # just report pvnames    
 
 
-def report_waveformPVs(do_log=False, do_return=False):
-    '''- Get a list of dicts of waveform PVs that are currently being archived.
-    record types could be: waveform, aSub, compress, etc.
-    {u'elementCount': u'128', u'samplingperiod': u'1.0', 
-    u'pvName': u'BR-TS{EVR:B2A-Out:FPUV3}User-SP', u'samplingmethod': u'MONITOR'}
+def report_all_pvnames():
+    '''Get all pv names in the Archiver and write them to a file'''
+    report_pvnames(pattern="*", regex="*", limit=-1, return_pvnames=False)
+
+
+def report_waveform_pvs(log_file_info=True, return_pvnames=False):
+    ''' Get a list of dicts of waveform PVs that are currently being archived,
+    then try to log .pb file information (name, size) and pv names  
     '''
-    r = archiver.get("/getArchivedWaveforms", params={})
-    try:
-        results = r.json()
-    except:
-        results = r.json
+    results = archiver.get_archived_waveforms()
+    pvnames = _get_pvnames(results)
+    _log(pvnames, "all waveform pvnames");
 
-    if do_log:
-        pvNames = [dic['pvName'] for dic in results]
-        pvNames.sort()
-        info = get_pvs_file_info(pvNames)
-        _log_pvs(info, "waveform file info")
+    if log_file_info:
+        pvnames = [dic['pvName'] for dic in results]
+        pvnames.sort()
+        info = get_pvs_file_info(pvnames)
+        _log(info, "waveform file info")
 
-    if do_return:
-        return _report_pvs(results, "waveform PVs")
-    else:
-        _report_pvs(results, "waveform PVs")
+    if return_pvnames:
+        return pvnames
 
 
-def report_storage_rate(limit=1000, do_return=False):
-    '''- Return a list of dicts of PVs sorted by descending storage rate.
-    limit: Limit this report to this many PVs per appliance in the cluster. 
-        Optional, if unspecified, there are no limits enforced.
-    {u'storageRate_KBperHour': u'16054.3', u'storageRate_MBperDay': u'376.2',     
-    u'pvName': u'SR-RF{CFD:2-Cav}E:I', u'storageRate_GBperYear': u'134.1'}
+def report_storage_rate(limit=1000, return_pvnames=False):
+    '''Get a list of dicts of PVs sorted by descending storage rate.
     '''
-    r = archiver.get("/getStorageRateReport", params={"limit": limit})  
-    try:
-        results = r.json()
-    except:
-        results = r.json
-    print(results[0])
-    if do_return:
-        return _report_pvs(results, "storage rate PVs", sort=False)
+    results = archiver.get_storage_rate_report(limit=limit) 
+    _log(results, "storage rate");
+
+    if return_pvnames:
+        return _get_pvnames(results, sort=False) # DO NOT sort 
     else:
-        _report_pvs(results, "storage rate PVs", sort=False)
+        _get_pvnames(results, sort=False)
 
 
-def get_pvs_file_info(pvs, report_zero_size=True, lts_path='/DATA/lts/ArchiverStore/'):
-    '''- Get archived data file name and file size for each pv in pvs
+def get_pvs_file_info(pvnames, report_zero_size=True, only_report_total_size=True,
+    only_report_current_year_file=True, lts_path='/DATA/lts/ArchiverStore/'):
+    '''- Get archived data file name and file size for each pvname in pvnames
     pv = "SR-RF{CFD:2-Cav}E:I"; relative_path = 'SR/RF/CFD/2/Cav/E/I'
     pb_file: /DATA/lts/ArchiverStore/SR/RF/CFD/2/Cav/E/I:2016.pb
     '''
+    year=time.strftime("%Y")
     pvs_file_info = []
-    for pv in pvs:
+    for pvname in pvnames:
         pv_file_info = odict()
         total_GB = 0.0
-        file_names = []
-        relative_path = re.sub('[:{}-]', '/', pv)
+        file_names = ""
+        relative_path = re.sub('[:{}-]', '/', pvname)
         full_path = lts_path + str(relative_path)
+        
         for pb_file in glob.glob(full_path+'*'):
             year = "".join("".join(pb_file.rsplit(full_path+':'))).rsplit('.pb')[0]
             size_GB = round(1.0*os.path.getsize(pb_file)/(1024**3))
             total_GB += size_GB
-            #pv_file_info[pv+'('+year+')'] = size_GB # GB per year
-            file_names.append(pb_file)
+            if not only_report_total_size:
+                pv_file_info[pvname+'\t'+year] = size_GB # GB per year
+            if only_report_current_year_file:
+                if year == time.strftime("%Y"):
+                    file_names = pb_file
+                    pv_file_info[pvname+" "+year] = size_GB
+            else:
+                file_names += (pb_file + "    ")
 
-        pv_file_info[pv+'(total)'] = total_GB # total file size (GB) for  pv 
         if report_zero_size:
             if not total_GB: 
-                print(pv)
-        #pv_file_info[pv+'(file_names)'] = file_names
+                print("%s\t has no .pb files"%pvname)
+                
+        pv_file_info[pvname] = total_GB # total file size (GB) for  pv 
+        pv_file_info[pvname+'(path)'] = full_path
+        pv_file_info[pvname+'(file_names)'] = file_names
 
         pvs_file_info.append(pv_file_info)
 
