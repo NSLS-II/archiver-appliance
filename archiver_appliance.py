@@ -280,46 +280,78 @@ def _get_authentication():
             print("You do not have permission to do this kind of action on AA")
             sys.exit("Please exit python/ipython shell if the shell does not exit \
 by itself. Ask for permission to work on Archiver, then try again.")
-
     except KeyError:
         pass # no authentication if no aaconfig_dict["Superusers"]["*"]
-        
-    
-def pause_pvs(pvnames_src=None):
-    '''Pause each pv in 'pvnames_src' if permission is allowed.
+
+
+def _action(pvnames_src=None, act="unknown"):
+    '''perform the action 'act' (abort, pause, resume) on pvs
     pvnames_src(source where we get pvnames): 
-    1) default is None: pvnames are currently disconnected PVs;
+    1) optional: default is None; 3 actions supported: abort, pause, resume;
     2) a list of pv names: i.e. ['pv1', 'pv2'];
     3) filename: i.e. 'pause_pvs.txt', pv names should be listed as one column
     '''
     _get_authentication()
     
     if pvnames_src is None:
-        pvnames = report_currently_disconnected_pvs(do_return=True)
+        if act == 'abort' or act == 'resume':
+            pvnames = report_paused_pvs(do_return=True)
+        elif act == 'pause':
+            pvnames = report_currently_disconnected_pvs(do_return=True);
     elif isinstance(pvnames_src, list):
         pvnames = pvnames_src
     else:
         pvnames = get_pvnames_from_file(pvnames_src)
     
     pvnames = _get_pvnames(pvnames) # just for printing some debug messages
-    answer = raw_input("Do you really want to pause those PVs? Type yes or no: ")
+    answer = raw_input("Do you really wanna %s those PVs? Type yes or no: "%act)
     if answer.upper() != "YES":
-        print("Quit. No PVs paused.")
+        print("Quit. Nothing done.")
         return 
         
     results = []
-    paused_pvnames = []
+    valid_pvnames = []
     for pvname in pvnames:
-        result = archiver.pause_pv(pvname) 
+        if act == 'abort':
+            result = archiver.abort_pv(pvname) 
+        elif act == 'pause':
+            result = archiver.pause_pv(pvname) 
+        elif act == 'resume':
+            result = archiver.resume_pv(pvname)  
+                  
         results.append(result)
         try:
             if result['status'] == 'ok':
-                print("Successfully paused %s."%pvname)
-                paused_pvnames.append(pvname)
+                print("Successfully {}ed {}.".format(act, pvname))
+                valid_pvnames.append(pvname)
         except:
-            print("%s is already paused or it is not in the Archiver."%pvname)
+            print("{} is already {}ed or it is not in AA.".format(pvname, act))
+            
+    _log(results, act+"_pv detailed results")
+    _log(valid_pvnames, act+"ed pvnames")
+    
+    
+def abort_pvs(pvnames_src=None):
+    '''Abort each pv in 'pvnames_src' if permission is allowed.
+    pvnames_src(source where we get pvnames): 
+    1) default is None: pvnames are currently paused PVs;
+    2) a list of pv names: i.e. ['pv1', 'pv2'];
+    3) filename: i.e. 'pause_pvs.txt', pv names should be listed as one column'''
+    _action(pvnames_src=pvnames_src, act='abort')
 
-    _log(results, "pause_pv detailed results")
-    _log(paused_pvnames, "paused pvnames")
 
+def pause_pvs(pvnames_src=None):
+    '''Pause each pv in 'pvnames_src' if permission is allowed.
+    pvnames_src(source where we get pvnames): 
+    1) default is None: pvnames are currently disconnected PVs;
+    2) a list of pv names: i.e. ['pv1', 'pv2'];
+    3) filename: i.e. 'pause_pvs.txt', pv names should be listed as one column'''
+    _action(pvnames_src=pvnames_src, act='pause') 
 
+def resume_pvs(pvnames_src=None):
+    '''resume each pv in 'pvnames_src' if permission is allowed.
+    pvnames_src(source where we get pvnames): 
+    1) default is None: pvnames are currently paused PVs;
+    2) a list of pv names: i.e. ['pv1', 'pv2'];
+    3) filename: i.e. 'pause_pvs.txt', pv names should be listed as one column'''
+    _action(pvnames_src=pvnames_src, act='resume') 
