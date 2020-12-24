@@ -239,7 +239,7 @@ def report_storage_rate(limit=1000, do_return=False):
 
 
 def report_never_connected_pvs(do_return=False):
-    '''Get never connected pvs, the same as the web "PV's that may not exist"
+    '''Report never connected pvs, the same as the web "PV's that may not exist"
     We can not pause never connected pvs, we can abort them.
     '''
     results = archiver.get_never_connected_pvs()
@@ -252,7 +252,7 @@ def report_never_connected_pvs(do_return=False):
  
         
 def report_currently_disconnected_pvs(do_return=False):
-    '''Get currently disconnected pvs, meaning they were archived at least once'''
+    '''Report currently disconnected pvs, meaning they were archived at least once'''
     results = archiver.get_currently_disconnected_pvs()
     pvnames = _get_pvnames(results)    
     _log(pvnames, "currently disconnected pvnames")
@@ -262,6 +262,17 @@ def report_currently_disconnected_pvs(do_return=False):
         return pvnames  
 
 
+def report_paused_pvs(do_return=False):
+    '''Report currently paused pvs'''
+    results = archiver.get_paused_pvs_report()
+    pvnames = _get_pvnames(results)    
+    _log(pvnames, "currently paused pvnames")
+    _log(results, "currently paused pvs details")
+    
+    if do_return:
+        return pvnames
+        
+        
 def _get_authentication():
     try: 
         userID = os.popen('whoami').read()[:-1] 
