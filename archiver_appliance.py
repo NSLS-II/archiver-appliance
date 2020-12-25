@@ -106,11 +106,13 @@ def _log(results, file_prefix, one_line_per_pvinfo=True):
                         
                 fd.write("\n")
 
-    print("{} PVs have been written to the file {}\n".format(len(results), file_name))
+    print("{} PV items have been written to {}.".format(len(results), file_name))
+    print("Use MS Excel or OpenOffice Spreadsheet(Insert Sheet from File ...) \
+            to open the txt file for better viewing")
 
 
 def _get_pvnames(results, sort=True, do_return=True):
-    '''Get PV names only, no other information. 
+    '''Get PV names from results which might be a list of dicts, then sorted them.
     To avoid verbose output when using python/ipython shell, set do_return=False'''
     if not results:
         print("No PVs found\n")
@@ -119,6 +121,7 @@ def _get_pvnames(results, sort=True, do_return=True):
     pvnames=results
     if isinstance(results[0], dict): 
         pvnames = [dic['pvName'] for dic in results]
+        
     if sort:
         pvnames.sort()
 
@@ -190,12 +193,7 @@ def get_pvs_file_info(pvnames, report_zero_size=True, only_report_total_size=Tru
     return pvs_file_info
             
 
-'''
-Each of the following report_* functions does a few common things: reporting
-debug information, logging pv names (or more details on pvs), returning pv names
-if do_return is explicitly set True. So, each function does more than just 'report'.
-'''   
-def report_pvnames(pattern='*', regex='*', limit=500, do_return=False):
+def get_pvnames(pattern='*', regex='*', limit=500, do_return=False):
     '''Get pv names (number of pv names <= 'limit') based on 'pattern' and 'regex', 
     then write them to a file. If do_return is True, then report & return pvnames
     '''
@@ -209,68 +207,66 @@ def report_pvnames(pattern='*', regex='*', limit=500, do_return=False):
     return _get_pvnames(pvs, do_return=do_return)     
 
 
-def report_all_pvnames(do_return=False):
+def get_all_pvnames(do_return=False):
     '''Get all pv names in the Archiver and write them to a file'''
-    return report_pvnames(pattern="*", regex="*", limit=-1, do_return=do_return)
+    return get_pvnames(pattern="*", regex="*", limit=-1, do_return=do_return)
 
-
-def report_waveform_pvs(log_file_info=True, do_return=False):
-    ''' Get a list of dicts of waveform PVs that are currently being archived,
-    then try to log .pb file information (name, size) and pv names  
-    '''
-    results = archiver.get_archived_waveforms()
-    pvnames = _get_pvnames(results)
-    _log(pvnames, "all waveform pvnames");
-
+ 
+def report(report_type="",do_return=False,sort=True,log_file_info=False,**kargs):
+    '''A generic function which does more then just 'reporting something': it 
+    gets data from the Archiver, parses those data to get pv names, does all 
+    kinds of logs, and finally returns pv names if needed. '''
+    if report_type == 'never connected':
+        results =  archiver.get_never_connected_pvs()
+    elif report_type == 'currently disconnected':
+        results = archiver.get_currently_disconnected_pvs()
+    elif report_type == 'paused':
+        results = archiver.get_paused_pvs_report()
+    elif report_type == 'storage rate':
+        results = archiver.get_storage_rate_report(limit=kargs.pop('limit',1000))
+    elif report_type == 'waveform':
+        results = archiver.get_archived_waveforms()
+         
+    pvnames = _get_pvnames(results, sort=sort)    
+    _log(pvnames, report_type + " pvnames")
+    _log(results, report_type + " details")
+    
     if log_file_info:
-        info = get_pvs_file_info(pvnames)
-        _log(info, "waveform file info")
-
-    if do_return:
-        return pvnames
-
-
-def report_storage_rate(limit=1000, do_return=False):
-    '''Get a list of dicts of PVs sorted by descending storage rate.
-    '''
-    results = archiver.get_storage_rate_report(limit=limit) 
-    _log(results, "storage rate");
-    return _get_pvnames(results, sort=False, do_return=do_return) # DO NOT sort 
-
-
-def report_never_connected_pvs(do_return=False):
-    '''Report never connected pvs, the same as the web "PV's that may not exist"
-    We can not pause never connected pvs, we can abort them.
-    '''
-    results = archiver.get_never_connected_pvs()
-    pvnames = _get_pvnames(results)    
-    _log(pvnames, "never connected pvnames")
-    _log(results, "never connected pvs details")
+        info = get_pvs_file_info(pvnames, **kargs)
+        _log(info, report_type + " pvnames file info")      
     
     if do_return:
-        return pvnames    
+        return pvnames
+        
+        
+def report_waveform_pvs(**kargs):
+    '''Report waveform PVs that are currently being archived. To return pv names, 
+    use one keyword argument, i.e. report_waveform_pvs(do_return=False).'''
+    return report(report_type='waveform', log_file_info=True, **kargs)
+
+
+def report_storage_rate(**kargs):
+    '''report PVs sorted by descending storage rate. Two keyword arguments can be
+    used, i.e. report_storage_rate(limit=1000, do_return=False).'''
+    return report(report_type='storage rate', sort=False, **kargs) 
+
+
+def report_never_connected_pvs(**kargs):
+    '''Report never connected pvs (as "PV's that may not exist" on the web). One
+    argument can be used, i.e. report_never_connected_pvs(do_return=True). '''
+    return report(report_type='never connected', **kargs);
  
         
-def report_currently_disconnected_pvs(do_return=False):
-    '''Report currently disconnected pvs, meaning they were archived at least once'''
-    results = archiver.get_currently_disconnected_pvs()
-    pvnames = _get_pvnames(results)    
-    _log(pvnames, "currently disconnected pvnames")
-    _log(results, "currently disconnected pvs details")
-    
-    if do_return:
-        return pvnames  
+def report_currently_disconnected_pvs(**kargs):
+    '''Report currently disconnected pvs (used to be connected). One argument 
+    can be used, i.e. report_currently_disconnected_pvs(do_return=True).'''
+    return report(report_type='currently disconnected', **kargs);
 
 
-def report_paused_pvs(do_return=False):
-    '''Report currently paused pvs'''
-    results = archiver.get_paused_pvs_report()
-    pvnames = _get_pvnames(results)    
-    _log(pvnames, "currently paused pvnames")
-    _log(results, "currently paused pvs details")
-    
-    if do_return:
-        return pvnames
+def report_paused_pvs(**kargs):
+    '''Report currently paused pvs. To return pv names, use one keyword argument: 
+    report_paused_pvs(do_return=True).'''
+    return report(report_type='paused', **kargs);
         
         
 def _get_authentication():
@@ -294,16 +290,19 @@ def _action(pvnames_src=None, act="unknown"):
     _get_authentication()
     
     if pvnames_src is None:
-        if act == 'abort' or act == 'resume':
+        if act == 'resume':  # resume paused pvs
             pvnames = report_paused_pvs(do_return=True)
-        elif act == 'pause':
+        elif act == 'pause': # pause currently disconnected pvs
             pvnames = report_currently_disconnected_pvs(do_return=True);
+        elif act == 'abort': # abort never connected pvs
+            pvnames = report_never_connected_pvs(do_return=True)
     elif isinstance(pvnames_src, list):
         pvnames = pvnames_src
     else:
         pvnames = get_pvnames_from_file(pvnames_src)
     
-    pvnames = _get_pvnames(pvnames) # just for printing some debug messages
+    if pvname_src is not None:
+        pvnames = _get_pvnames(pvnames) # sort pv names ... 
     answer = raw_input("Do you really wanna %s those PVs? Type yes or no: "%act)
     if answer.upper() != "YES":
         print("Quit. Nothing done.")
@@ -327,14 +326,14 @@ def _action(pvnames_src=None, act="unknown"):
         except:
             print("{} is already {}ed or it is not in AA.".format(pvname, act))
             
-    _log(results, act+"_pv detailed results")
+    _log(results, act+"_pv details")
     _log(valid_pvnames, act+"ed pvnames")
     
     
 def abort_pvs(pvnames_src=None):
     '''Abort each pv in 'pvnames_src' if permission is allowed.
     pvnames_src(source where we get pvnames): 
-    1) default is None: pvnames are currently paused PVs;
+    1) default is None: pvnames are never connected PVs;
     2) a list of pv names: i.e. ['pv1', 'pv2'];
     3) filename: i.e. 'pause_pvs.txt', pv names should be listed as one column'''
     _action(pvnames_src=pvnames_src, act='abort')
