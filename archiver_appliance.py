@@ -80,7 +80,7 @@ import subprocess
 log_dir = os.path.expanduser("~") + "/aa-script-logs"
 subprocess.call(['mkdir', '-p', log_dir])
 
-def _log(results, file_prefix, one_line_per_pvinfo=True):
+def _log(results, file_prefix, one_line_per_pvinfo=True, **kargs):
     '''Save results, which may include pv names as well as other information, 
     to a text file. one_line_per_pvinfo makes .txt file more easier to be 
     analyzied by other software such as Microsoft Excel 
@@ -108,10 +108,10 @@ def _log(results, file_prefix, one_line_per_pvinfo=True):
 
     print("{} PV items have been written to {}.".format(len(results), file_name))
     print("Use MS Excel or OpenOffice Spreadsheet(Insert Sheet from File ...) \
-            to open the txt file for better viewing")
+to open the txt file for better viewing. \n")
 
 
-def _get_pvnames(results, sort=True, do_return=True):
+def _get_pvnames(results, sort=True, do_return=True, **kargs):
     '''Get PV names from results which might be a list of dicts, then sorted them.
     To avoid verbose output when using python/ipython shell, set do_return=False'''
     if not results:
@@ -149,12 +149,12 @@ def get_pvnames_from_file(filename):
             pvnameList.append(str(line).strip())
             
     pvnames = set(pvnameList) # remove duplicated PVs
-    print("get %d PVs from %s"%(len(pvs), filename))
+    print("get %d PVs from %s"%(len(pvnames), filename))
     return list(pvnames)
 
 
 def get_pvs_file_info(pvnames, report_zero_size=True, only_report_total_size=True,
-    only_report_current_year_file=True, lts_path='/DATA/lts/ArchiverStore/'):
+    only_report_current_year=True, lts_path='/DATA/lts/ArchiverStore/', **kargs):
     '''- Get archived data file name and file size for each pvname in pvnames
     pv = "SR-RF{CFD:2-Cav}E:I"; relative_path = 'SR/RF/CFD/2/Cav/E/I'
     pb_file: /DATA/lts/ArchiverStore/SR/RF/CFD/2/Cav/E/I:2016.pb
@@ -173,7 +173,7 @@ def get_pvs_file_info(pvnames, report_zero_size=True, only_report_total_size=Tru
             total_GB += size_GB
             if not only_report_total_size:
                 pv_file_info[pvname+'\t'+year] = size_GB # GB per year
-            if only_report_current_year_file:
+            if only_report_current_year:
                 if year == time.strftime("%Y"):
                     file_names = pb_file
                     pv_file_info[pvname+" "+year] = size_GB
@@ -193,29 +193,11 @@ def get_pvs_file_info(pvnames, report_zero_size=True, only_report_total_size=Tru
     return pvs_file_info
             
 
-def get_pvnames(pattern='*', regex='*', limit=500, do_return=False):
-    '''Get pv names (number of pv names <= 'limit') based on 'pattern' and 'regex', 
-    then write them to a file. If do_return is True, then report & return pvnames
-    '''
-    pvs = archiver.get_all_pvs(pv=pattern, regex=regex, limit=limit)
-    
-    if pattern == "*":
-        file_prefix = "all pvnames"
-    else:
-        file_prefix = str(pattern) + "-" + str(limit) + '-pvnames' 
-    _log(pvs, file_prefix)
-    return _get_pvnames(pvs, do_return=do_return)     
-
-
-def get_all_pvnames(do_return=False):
-    '''Get all pv names in the Archiver and write them to a file'''
-    return get_pvnames(pattern="*", regex="*", limit=-1, do_return=do_return)
-
- 
-def report(report_type="",do_return=False,sort=True,log_file_info=False,**kargs):
+def _report(report_type="", **kargs):
     '''A generic function which does more then just 'reporting something': it 
     gets data from the Archiver, parses those data to get pv names, does all 
     kinds of logs, and finally returns pv names if needed. '''
+    #print(kargs)
     if report_type == 'never connected':
         results =  archiver.get_never_connected_pvs()
     elif report_type == 'currently disconnected':
@@ -226,47 +208,69 @@ def report(report_type="",do_return=False,sort=True,log_file_info=False,**kargs)
         results = archiver.get_storage_rate_report(limit=kargs.pop('limit',1000))
     elif report_type == 'waveform':
         results = archiver.get_archived_waveforms()
-         
-    pvnames = _get_pvnames(results, sort=sort)    
-    _log(pvnames, report_type + " pvnames")
-    _log(results, report_type + " details")
+    elif report_type == 'search':
+        results = archiver.get_all_pvs(pv=kargs.pop('pattern', '*'), 
+            regex=kargs.pop('regex', '*'), limit=kargs.pop('limit', 500))
+    elif report_type == 'pvs from file':
+        results = get_pvnames_from_file(kargs.pop('filename', 'pvlist.txt'))
+                 
+    pvnames = _get_pvnames(results, **kargs)    
+    _log(pvnames, report_type + " pvnames", **kargs)
+    _log(results, report_type + " details", **kargs)
     
-    if log_file_info:
+    if kargs.pop('log_file_info', False):
         info = get_pvs_file_info(pvnames, **kargs)
-        _log(info, report_type + " pvnames file info")      
+        _log(info, report_type + " pvs file info", **kargs)      
     
-    if do_return:
+    if kargs.pop('do_return', False):
         return pvnames
-        
-        
+
+      
+#def report_pvs(pattern='*', regex='*', limit=500, **kargs): #this is wrong
+def report_pvs(**kargs):  
+    '''Report pvs (number of pvs <= 'limit') based on 'pattern' and 'regex'. 
+    To return pv names, use do_return=True.'''
+    return _report('search', pattern='*', regex='*', limit=500, **kargs)     
+
+
+def report_all_pvs(**kargs):
+    '''Report all pvs in the Archiver. To return pv names, use do_return=True.'''
+    return _report('search', pattern="*", regex="*", limit=-1, **kargs)
+   
+    
+def report_pvs_from_file(**kargs):
+    '''Report pvs which are listed as one column in a file. 
+    To return pv names, use do_return=True.'''
+    return _report("pvs from file", filename='pvlist.txt', **kargs)   
+    
+    
 def report_waveform_pvs(**kargs):
-    '''Report waveform PVs that are currently being archived. To return pv names, 
-    use one keyword argument, i.e. report_waveform_pvs(do_return=False).'''
-    return report(report_type='waveform', log_file_info=True, **kargs)
+    '''Report waveform PVs that are currently being archived. 
+    To return pv names, use do_return=True.'''
+    return _report(report_type='waveform', log_file_info=True, **kargs)
 
 
 def report_storage_rate(**kargs):
-    '''report PVs sorted by descending storage rate. Two keyword arguments can be
-    used, i.e. report_storage_rate(limit=1000, do_return=False).'''
-    return report(report_type='storage rate', sort=False, **kargs) 
+    '''Report PVs sorted by descending storage rate. 
+    To return pv names, use do_return=True.'''
+    return _report(report_type='storage rate', sort=False, **kargs) 
 
 
 def report_never_connected_pvs(**kargs):
-    '''Report never connected pvs (as "PV's that may not exist" on the web). One
-    argument can be used, i.e. report_never_connected_pvs(do_return=True). '''
-    return report(report_type='never connected', **kargs);
+    '''Report never connected pvs, as "PV's that may not exist" on the web. 
+    To return pv names, use do_return=True.'''
+    return _report(report_type='never connected', **kargs);
  
         
 def report_currently_disconnected_pvs(**kargs):
-    '''Report currently disconnected pvs (used to be connected). One argument 
-    can be used, i.e. report_currently_disconnected_pvs(do_return=True).'''
-    return report(report_type='currently disconnected', **kargs);
+    '''Report currently disconnected pvs, meaning they used to be connected.
+    To return pv names, use do_return=True.'''
+    return _report(report_type='currently disconnected', **kargs);
 
 
 def report_paused_pvs(**kargs):
-    '''Report currently paused pvs. To return pv names, use one keyword argument: 
-    report_paused_pvs(do_return=True).'''
-    return report(report_type='paused', **kargs);
+    '''Report currently paused pvs. To return pv names, use do_return=True.'''
+    return _report(report_type='paused', **kargs);
         
         
 def _get_authentication():
