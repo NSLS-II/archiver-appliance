@@ -303,8 +303,12 @@ def _action(pvnames_src=None, act="unknown"):
     else:
         pvnames = get_pvnames_from_file(pvnames_src)
     
-    if pvname_src is not None:
+    if pvnames_src is not None:
         pvnames = _get_pvnames(pvnames) # sort pv names ... 
+    
+    if not pvnames:
+        return 
+        
     answer = raw_input("Do you really wanna %s those PVs? Type yes or no: "%act)
     if answer.upper() != "YES":
         print("Quit. Nothing done.")
@@ -326,7 +330,7 @@ def _action(pvnames_src=None, act="unknown"):
                 print("Successfully {}ed {}.".format(act, pvname))
                 valid_pvnames.append(pvname)
         except:
-            print("{} is already {}ed or it is not in AA.".format(pvname, act))
+            print("{} is already done or it is not in AA.".format(pvname))
             
     _log(results, act+"_pv details")
     _log(valid_pvnames, act+"ed pvnames")
