@@ -363,7 +363,7 @@ def pause_pvs(pvnames_src=None):
     _action(pvnames_src=pvnames_src, act='pause_pvs') 
 
 def resume_pvs(pvnames_src=None):
-    '''resume each pv in 'pvnames_src' if permission is allowed.
+    '''Resume each pv in 'pvnames_src' if permission is allowed.
     pvnames_src(source where we get pvnames): 
     1) default is None: pvnames are currently paused PVs;
     2) a list of pv names: i.e. ['pv1', 'pv2'];
@@ -372,7 +372,7 @@ def resume_pvs(pvnames_src=None):
 
 
 def delete_pvs_only(pvnames_src=None):
-    '''delete each pv in 'pvnames_src' if permission is allowed. No data deleted.
+    '''Delete each pv in 'pvnames_src' if permission is allowed. No data deleted.
     pvnames_src(source where we get pvnames): 
     1) default is None: pvnames are currently paused PVs;
     2) a list of pv names: i.e. ['pv1', 'pv2'];
@@ -381,9 +381,28 @@ def delete_pvs_only(pvnames_src=None):
 
 
 def delete_pvs_and_data(pvnames_src=None):
-    '''delete each pv and its archived data if permission is allowed.
+    '''Delete each pv and its archived data if permission is allowed.
     pvnames_src(source where we get pvnames): 
     1) default is None: pvnames are currently paused PVs;
     2) a list of pv names: i.e. ['pv1', 'pv2'];
     3) filename: i.e. 'pause_pvs.txt', pv names should be listed as one column'''
     _action(pvnames_src=pvnames_src, act='delete_pvs_and_data') 
+
+    
+def get_reconnected_pvnames():
+    '''Report those paused pv names, which are reconnected / online again.'''
+    try:
+        from cothread.catools import connect
+    except:
+        print("Aborted: python-cothread is not installed")
+        return
+        
+    pvnames = []    
+    paused_pvnames =  report_paused_pvs(do_return=True)
+    results = connect(paused_pvnames, cainfo=True, throw=False)
+    for result in results:
+        if result.ok:
+            pvnames.append(result.name)
+    
+    _log(pvnames, 'reconnected pvnames')
+    
