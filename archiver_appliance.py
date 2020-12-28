@@ -147,22 +147,27 @@ by itself. Make changes on aa.conf, then try again.")
         full_path = lts_path + '/' + str(relative_path)
         
         for pb_file in glob.glob(full_path+'*'):
+            # initialize/zeroing the current year's info
+            cur_year = str(time.strftime("%Y"))
+            file_names = "No .pb file for " + cur_year
+            pv_file_info[pvname+'('+cur_year+')'] = 0.0
+            
             year = "".join("".join(pb_file.rsplit(full_path+':'))).rsplit('.pb')[0]
             size_GB = round(1.0*os.path.getsize(pb_file)/(1024**3), 9)
             total_GB += size_GB
             if not only_report_total_size:
-                pv_file_info[pvname+'('+year+')'] = size_GB # GB per year
+                pv_file_info[pvname+'('+year+')'] = '{:.9f}'.format(size_GB) 
             if report_current_year:
-                if year == time.strftime("%Y"):
+                if year == cur_year:
                     file_names = pb_file
-                    pv_file_info[pvname+" "+year] = size_GB
+                    pv_file_info[pvname+'('+year+')'] = '{:.9f}'.format(size_GB)
             else:
                 file_names += (pb_file + "    ")
 
         if not total_GB: # zero-size
             zero_size_pvnames.append(pvname)
                 
-        pv_file_info[pvname+'(total)'] = total_GB # total file size (GB) for  pv 
+        pv_file_info[pvname+'(total)'] = '{:.9f}'.format(total_GB) 
         pv_file_info[pvname+'(path)'] = full_path
         pv_file_info[pvname+'(file_names)'] = file_names
 
@@ -238,7 +243,7 @@ def report_all_pvs(**kargs):
 def report_pvs_from_file(**kargs):
     '''Report pvs which are listed as one column in a file. 
     See the function 'report' (type help(aa.report)) for all keyword arguments.'''
-    return report("pvs from file", filename='pvlist.txt', **kargs)   
+    return report("pvs from file", **kargs)   
     
     
 def report_waveform_pvs(**kargs):
@@ -292,11 +297,11 @@ def _action(pvnames_src=None, act="unknown"):
     _get_authentication()
     
     if pvnames_src is None:
-        if act == 'resume':  # resume paused pvs
+        if act in ['resume_pvs', 'delete_pvs_only', 'delete_pvs_and_data']:
             pvnames = report_paused_pvs(do_return=True)
-        elif act == 'pause': # pause currently disconnected pvs
+        elif act == 'pause_pvs': # pause currently disconnected pvs
             pvnames = report_currently_disconnected_pvs(do_return=True);
-        elif act == 'abort': # abort never connected pvs
+        elif act == 'abort_pvs': # abort never connected pvs
             pvnames = report_never_connected_pvs(do_return=True)
     elif isinstance(pvnames_src, list):
         pvnames = pvnames_src
@@ -309,7 +314,7 @@ def _action(pvnames_src=None, act="unknown"):
     if not pvnames:
         return 
         
-    answer = raw_input("Do you really wanna %s those PVs? Type yes or no: "%act)
+    answer = raw_input("Do you really wanna perform %s? Type yes or no: "%act)
     if answer.upper() != "YES":
         print("Quit. Nothing done.")
         return 
@@ -317,23 +322,27 @@ def _action(pvnames_src=None, act="unknown"):
     results = []
     valid_pvnames = []
     for pvname in pvnames:
-        if act == 'abort':
+        if act == 'abort_pvs':
             result = archiver.abort_pv(pvname) 
-        elif act == 'pause':
+        elif act == 'pause_pvs':
             result = archiver.pause_pv(pvname) 
-        elif act == 'resume':
+        elif act == 'resume_pvs':
             result = archiver.resume_pv(pvname)  
-                  
+        elif act == 'delete_pvs_only':
+            result = archiver.delete_pv(pvname, delete_data=False) 
+        elif act == 'delete_pvs_and_data':
+            result = archiver.delete_pv(pvname, delete_data=True) 
+                                                      
         results.append(result)
         try:
             if result['status'] == 'ok':
-                print("Successfully {}ed {}.".format(act, pvname))
+                print("Successfully performed {} on {}.".format(act, pvname))
                 valid_pvnames.append(pvname)
         except:
             print("{} is already done or it is not in AA.".format(pvname))
             
-    _log(results, act+"_pv details")
-    _log(valid_pvnames, act+"ed pvnames")
+    _log(results, act+" pv details")
+    _log(valid_pvnames, act+" pvnames")
     
     
 def abort_pvs(pvnames_src=None):
@@ -342,7 +351,7 @@ def abort_pvs(pvnames_src=None):
     1) default is None: pvnames are never connected PVs;
     2) a list of pv names: i.e. ['pv1', 'pv2'];
     3) filename: i.e. 'pause_pvs.txt', pv names should be listed as one column'''
-    _action(pvnames_src=pvnames_src, act='abort')
+    _action(pvnames_src=pvnames_src, act='abort_pvs')
 
 
 def pause_pvs(pvnames_src=None):
@@ -351,7 +360,7 @@ def pause_pvs(pvnames_src=None):
     1) default is None: pvnames are currently disconnected PVs;
     2) a list of pv names: i.e. ['pv1', 'pv2'];
     3) filename: i.e. 'pause_pvs.txt', pv names should be listed as one column'''
-    _action(pvnames_src=pvnames_src, act='pause') 
+    _action(pvnames_src=pvnames_src, act='pause_pvs') 
 
 def resume_pvs(pvnames_src=None):
     '''resume each pv in 'pvnames_src' if permission is allowed.
@@ -359,4 +368,22 @@ def resume_pvs(pvnames_src=None):
     1) default is None: pvnames are currently paused PVs;
     2) a list of pv names: i.e. ['pv1', 'pv2'];
     3) filename: i.e. 'pause_pvs.txt', pv names should be listed as one column'''
-    _action(pvnames_src=pvnames_src, act='resume') 
+    _action(pvnames_src=pvnames_src, act='resume_pvs') 
+
+
+def delete_pvs_only(pvnames_src=None):
+    '''delete each pv in 'pvnames_src' if permission is allowed. No data deleted.
+    pvnames_src(source where we get pvnames): 
+    1) default is None: pvnames are currently paused PVs;
+    2) a list of pv names: i.e. ['pv1', 'pv2'];
+    3) filename: i.e. 'pause_pvs.txt', pv names should be listed as one column'''
+    _action(pvnames_src=pvnames_src, act='delete_pvs_only') 
+
+
+def delete_pvs_and_data(pvnames_src=None):
+    '''delete each pv and its archived data if permission is allowed.
+    pvnames_src(source where we get pvnames): 
+    1) default is None: pvnames are currently paused PVs;
+    2) a list of pv names: i.e. ['pv1', 'pv2'];
+    3) filename: i.e. 'pause_pvs.txt', pv names should be listed as one column'''
+    _action(pvnames_src=pvnames_src, act='delete_pvs_and_data') 

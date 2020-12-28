@@ -331,8 +331,12 @@ class ArchiverAppliance:
             r = self.get("/deletePV", params={"pv": pv, "delete_data": delete_data})
             return self._return_json(r)
         except:
-            url = self.mgmt_url + '/deletePV?pv=' + urllib.quote_plus(pv) + \
-            "&deleteData=true"
+            if delete_data:
+                url = self.mgmt_url + '/deletePV?pv=' + urllib.quote_plus(pv) + \
+                      "&deleteData=true"
+            else:
+                url = self.mgmt_url + '/deletePV?pv=' + urllib.quote_plus(pv) + \
+                      "&deleteData=False"
             return self.request_by_urllib2(url)
 
     def rename_pv(self, pv, newname):
