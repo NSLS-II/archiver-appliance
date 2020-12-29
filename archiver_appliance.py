@@ -6,6 +6,7 @@ from __future__ import print_function
 import os
 import sys
 import time
+import traceback
 import re
 import glob
 from collections import OrderedDict as odict
@@ -124,7 +125,8 @@ def get_pvnames_from_file(filename='pvlist.txt'):
     return pvnames
 
 
-def get_pvs_file_info(pvnames,only_report_total_size=True,report_current_year=True,
+def get_pvs_file_info(pvnames, only_report_total_size=True,
+                      only_report_current_year=True,
                       lts_path=str(aaconfig_dict["Lts"]["Path"]), **kargs):
     '''- Get archived data file name and file size for each pvname in pvnames.
     pvname = "SR-RF{CFD:2-Cav}E:I"; relative_path = 'SR/RF/CFD/2/Cav/E/I';
@@ -141,23 +143,24 @@ by itself. Make changes on aa.conf, then try again.")
         pv_file_info = odict()
         total_GB = 0.0
         file_names = ""
+        years = ""
+        # initialize/zeroing the current year's file size
+        pv_file_info[pvname+'('+str(time.strftime("%Y"))+')'] = 0
         # replace the special characters, ':', '{', '}', '-', with '/'
         relative_path = re.sub('[:{}-]', '/', pvname) #this is specific for NSLS-2
         #relative_path = re.sub('[char_set]', '/', pvname)
         full_path = lts_path + '/' + str(relative_path)
         
-        for pb_file in glob.glob(full_path+'*'):
-            # initialize/zeroing the current year's info
-            cur_year = str(time.strftime("%Y"))
-            file_names = "No .pb file for " + cur_year
-            pv_file_info[pvname+'('+cur_year+')'] = 0.0
-            
-            year = "".join("".join(pb_file.rsplit(full_path+':'))).rsplit('.pb')[0]
+        for pb_file in glob.glob(full_path+'*'):    
+            # .rsplit will fail for a pv like this: "SR{}B-I"        
+            #year = "".join("".join(pb_file.rsplit(full_path+':'))).rsplit('.pb')[0]
+            year = str(pb_file.split(':')[1]).split('.')[0]
+            years += (year + " ")
             size_GB = round(1.0*os.path.getsize(pb_file)/(1024**3), 9)
             total_GB += size_GB
             if not only_report_total_size:
                 pv_file_info[pvname+'('+year+')'] = '{:.9f}'.format(size_GB) 
-            if report_current_year:
+            if only_report_current_year:
                 if year == cur_year:
                     file_names = pb_file
                     pv_file_info[pvname+'('+year+')'] = '{:.9f}'.format(size_GB)
@@ -170,6 +173,7 @@ by itself. Make changes on aa.conf, then try again.")
         pv_file_info[pvname+'(total)'] = '{:.9f}'.format(total_GB) 
         pv_file_info[pvname+'(path)'] = full_path
         pv_file_info[pvname+'(file_names)'] = file_names
+        pv_file_info[pvname+'(years)'] = years
 
         pvs_file_info.append(pv_file_info)
 
@@ -190,7 +194,7 @@ def report(report_type="", **kargs):
       7) one_line_per_pvinfo: if False, key & value per line in the log file;
       8) sort: if False, pv names are not sorted;
       And the following can be used if log_file_info=True: lts_path,
-      only_report_total_size, report_current_year. '''
+      only_report_total_size, only_report_current_year. '''
     print("keyword arguments: {}".format(kargs))
     if report_type == 'never connected':
         results =  archiver.get_never_connected_pvs()
@@ -287,7 +291,7 @@ by itself. Ask for permission to work on Archiver, then try again.")
         pass # no authentication if no aaconfig_dict["Superusers"]["*"]
 
 
-def _action(pvnames_src=None, act="unknown"):
+def _action(pvnames_src=None, act="unknown", **kargs):
     '''perform the action 'act' (abort, pause, resume) on pvs
     pvnames_src(source where we get pvnames): 
     1) optional: default is None; 3 actions supported: abort, pause, resume;
@@ -329,17 +333,49 @@ def _action(pvnames_src=None, act="unknown"):
         elif act == 'resume_pvs':
             result = archiver.resume_pv(pvname)  
         elif act == 'delete_pvs_only':
+            result = archiver.pause_pv(pvname) 
             result = archiver.delete_pv(pvname, delete_data=False) 
         elif act == 'delete_pvs_and_data':
-            result = archiver.delete_pv(pvname, delete_data=True) 
+            start_year = kargs.pop('start_year', 0)
+            end_year = kargs.pop('end_year', 0)
+            if end_year <= 0: # by default, delete all data
+                result = archiver.delete_pv(pvname, delete_data=True)
+            else: # if end_year > 0, delete files from start_year to end_year
+                result = "failed to delete " + pvname 
+                if start_year > end_year:
+                    print("Aborted: start={}>end={}".format(start_year,end_year))
+                    return
+                    
+                (pvs_info, zero_names) = get_pvs_file_info([pvname], \
+                                                only_report_current_year=False)
+                pv_info = pvs_info[0]
+                years = pv_info[pvname+'(years)'].split()
+                if not years:
+                    print("%s: no .pb files"%pvname)
+                    continue
+                    
+                oldest = int(min(years))     
+                newest = int(max(years))
+                if oldest > end_year or newest < start_year:
+                    print("{}: requested start-end-years out of range [{}, {}]."\
+                            .format(pvname, oldest, newest))
+                    continue
+                    
+                file_names = pv_info[pvname+'(file_names)'].split()
+                for i in range(len(years)):
+                    if start_year <= int(years[i]) <= end_year:
+                        subprocess.call(['sudo', 'rm', '-f', file_names[i]])
+                if not os.path.isfile(file_names[0]): # .pb file has been deleted
+                    result = archiver.pause_pv(pvname)
+                    result = archiver.delete_pv(pvname, delete_data=False)
                                                       
         results.append(result)
         try:
             if result['status'] == 'ok':
                 print("Successfully performed {} on {}.".format(act, pvname))
                 valid_pvnames.append(pvname)
-        except:
-            print("{} is already done or it is not in AA.".format(pvname))
+        except KeyError:
+            print("Failed: %s"%str(result))
             
     _log(results, act+" pv details")
     _log(valid_pvnames, act+" pvnames")
@@ -380,13 +416,13 @@ def delete_pvs_only(pvnames_src=None):
     _action(pvnames_src=pvnames_src, act='delete_pvs_only') 
 
 
-def delete_pvs_and_data(pvnames_src=None):
+def delete_pvs_and_data(pvnames_src=None, **kargs):
     '''Delete each pv and its archived data if permission is allowed.
     pvnames_src(source where we get pvnames): 
     1) default is None: pvnames are currently paused PVs;
     2) a list of pv names: i.e. ['pv1', 'pv2'];
     3) filename: i.e. 'pause_pvs.txt', pv names should be listed as one column'''
-    _action(pvnames_src=pvnames_src, act='delete_pvs_and_data') 
+    _action(pvnames_src=pvnames_src, act='delete_pvs_and_data', **kargs) 
 
     
 def get_reconnected_pvnames():
