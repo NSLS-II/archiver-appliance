@@ -351,25 +351,24 @@ class ArchiverAppliance:
         r = self.get("/renamePV", params={"pv": pv, "newname": newname})
         return self._return_json(r)
 
-    def update_pv(self, pv, samplingperiod, samplingmethod=None):
+    def update_pv(self, pv, new_period, sampling_method='MONITOR'):
         """Change the archival parameters for a PV
-        (yhu-2020-Dec-22: it seems this method does not work)
 
         :param pv: name of the pv.
-        :param samplingperiod: the new sampling period in seconds.
-        :param samplingmethod: the new sampling method [SCAN|MONITOR]
+        :param new_period: the new sampling period in seconds.
+        :param sampling_method: the new sampling method [SCAN|MONITOR]
         :return: list of submitted PV
         """
-        params = {"pv": pv, "samplingperiod": samplingperiod}
-        if samplingmethod:
-            params["samplingmethod"] = samplingmethod
+        params = {"pv": pv, "samplingperiod": new_period}
+        if sampling_method:
+            params["samplingmethod"] = sampling_method
         try:
             r = self.get("/changeArchivalParameters", params=params)
             return self._return_json(r)
         except:            
             url = self.mgmt_url + 'changeArchivalParameters?pv=' + \
-            urllib.quote_plus(pv) + "&samplingperiod=samplingperiod" + \
-            "&samplingmethod=samplingmethod"
+            urllib.quote_plus(pv)+'&'+urllib.urlencode({"samplingperiod":new_period,\
+            "samplingmethod": sampling_method})
             return self.request_by_urllib2(url)
 
     def get_data(self, pv, start, end):
