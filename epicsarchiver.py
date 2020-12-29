@@ -489,6 +489,15 @@ class ArchiverAppliance:
         r = self.get("/getStorageRateReport", params={"limit": limit})  
         return self._return_json(r)
 
+    def get_storage_consumed_report(self, limit=1000):
+        """Return a list of dicts of PVs sorted by descending storage consumed.
+
+        :param limit: Limit this report to 'limit' PVs per appliance in the cluster.
+        :return: a list of dicts with keys of pvName, storageConsumedInMB, etc.
+        """
+        r = self.get("/getPVsByStorageConsumed", params={"limit": limit})  
+        return self._return_json(r)
+        
     def get_paused_pvs_report(self, limit=None):
         """Return a list of PVs that are currently paused.
 

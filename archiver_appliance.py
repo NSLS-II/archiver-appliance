@@ -205,6 +205,8 @@ def report(report_type="", **kargs):
         results = archiver.get_paused_pvs_report()
     elif report_type == 'storage rate':
         results = archiver.get_storage_rate_report(limit=kargs.pop('limit',1000))
+    elif report_type == 'storage consumed':
+        results = archiver.get_storage_consumed_report(limit=kargs.pop('limit',1000))
     elif report_type == 'waveform':
         results = archiver.get_archived_waveforms()
     elif report_type == 'search':
@@ -262,6 +264,12 @@ def report_storage_rate(**kargs):
     See the function 'report' (type help(aa.report)) for all keyword arguments.'''
     return report(report_type='storage rate', sort=False, **kargs) 
 
+
+def report_storage_consumed(**kargs):
+    '''Report PVs sorted by descending storage consumed. 
+    See the function 'report' (type help(aa.report)) for all keyword arguments.'''
+    return report(report_type='storage consumed', sort=False, **kargs) 
+    
 
 def report_never_connected_pvs(**kargs):
     '''Report never connected pvs, as "PV's that may not exist" on the web. 
