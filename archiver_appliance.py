@@ -145,13 +145,14 @@ by itself. Make changes on aa.conf, then try again.")
         file_names = ""
         years = ""
         # initialize/zeroing the current year's file size
-        pv_file_info[pvname+'('+str(time.strftime("%Y"))+')'] = 0
+        cur_year = str(time.strftime("%Y"))
+        pv_file_info[pvname+'('+cur_year+')'] = 0
         # replace the special characters, ':', '{', '}', '-', with '/'
         relative_path = re.sub('[:{}-]', '/', pvname) #this is specific for NSLS-2
         #relative_path = re.sub('[char_set]', '/', pvname)
         full_path = lts_path + '/' + str(relative_path)
         
-        for pb_file in glob.glob(full_path+'*'):    
+        for pb_file in glob.glob(full_path+':*'):    
             # .rsplit will fail for a pv like this: "SR{}B-I"        
             #year = "".join("".join(pb_file.rsplit(full_path+':'))).rsplit('.pb')[0]
             year = str(pb_file.split(':')[1]).split('.')[0]
@@ -352,6 +353,8 @@ def _action(pvnames_src=None, act="unknown", **kargs):
                 years = pv_info[pvname+'(years)'].split()
                 if not years:
                     print("%s: no .pb files"%pvname)
+                    result = archiver.pause_pv(pvname)
+                    result = archiver.delete_pv(pvname, delete_data=False)
                     continue
                     
                 oldest = int(min(years))     
