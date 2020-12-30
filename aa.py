@@ -191,7 +191,7 @@ def report(report_type="", **kargs):
       3) filename='your-customized-text-file': used for report_pvs_from_file();
       4) pattern=something-like-'SR:C03-BI*': used for report_pvs();  
       5) regex='*': used for report_pvs();  
-      6) limit=max-number-of-pvs: for get_storage_rate_report() and report_pvs(); 
+      6) limit=max-number-of-pvs: for get_storage_rate_report(), etc.; 
       7) one_line_per_pvinfo: if False, key & value per line in the log file;
       8) sort: if False, pv names are not sorted;
       And the following can be used if log_file_info=True: lts_path,
@@ -214,7 +214,9 @@ def report(report_type="", **kargs):
             regex=kargs.pop('regex', '*'), limit=kargs.pop('limit', 1000))
     elif report_type == 'pvs from file':
         results = get_pvnames_from_file(kargs.pop('filename', 'pvlist.txt'))
-                 
+    elif report_type == 'overflow':
+        results = archiver.get_overflow_report(limit=kargs.pop('limit',1000))        
+                         
     pvnames = _get_pvnames(results, **kargs)    
     _log(pvnames, report_type + " pvnames", **kargs)
     
@@ -287,6 +289,12 @@ def report_paused_pvs(**kargs):
     '''Report currently paused pvs. 
     See the function 'report' (type help(aa.report)) for all keyword arguments.'''
     return report(report_type='paused', **kargs)
+
+
+def report_overflow_pvs(**kargs):
+    '''Report PVs that are dropping events because of buffer overflow. 
+    See the function 'report' (type help(aa.report)) for all keyword arguments.'''
+    return report(report_type='overflow', sort=False, **kargs)
         
         
 def _get_authentication():

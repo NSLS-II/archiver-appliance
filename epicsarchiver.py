@@ -513,3 +513,11 @@ class ArchiverAppliance:
         """
         r = self.get("/getArchivedWaveforms")
         return self._return_json(r)
+
+    def get_overflow_report(self, limit=1000):
+        """Get a list of PVs that are dropping events because of buffer overflow.
+
+        :return: a list of dicts including keys of pvName, elementCount, etc.  
+        """
+        r = self.get("/getPVsByDroppedEventsBuffer", params={"limit": limit})
+        return self._return_json(r)
