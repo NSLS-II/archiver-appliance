@@ -351,7 +351,7 @@ class ArchiverAppliance:
         r = self.get("/renamePV", params={"pv": pv, "newname": newname})
         return self._return_json(r)
 
-    def update_pv(self, pv, new_period, sampling_method='MONITOR'):
+    def update_pv(self, pv, new_period=1.0, sampling_method='MONITOR', **kargs):
         """Change the archival parameters for a PV
 
         :param pv: name of the pv.

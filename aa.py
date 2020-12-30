@@ -316,16 +316,16 @@ def _action(pvnames_src=None, act="unknown", **kargs):
             pvnames = report_currently_disconnected_pvs(do_return=True);
         elif act == 'abort_pvs': # abort never connected pvs
             pvnames = report_never_connected_pvs(do_return=True)
+        else:
+            pvnames = []
     elif isinstance(pvnames_src, list):
         pvnames = pvnames_src
     else:
         pvnames = get_pvnames_from_file(pvnames_src)
     
-    if pvnames_src is not None:
-        pvnames = _get_pvnames(pvnames) # sort pv names ... 
-    
+    pvnames = _get_pvnames(pvnames) # sort pv names ... 
     if not pvnames:
-        return 
+        return
         
     answer = raw_input("Do you really wanna perform %s? Type yes or no: "%act)
     if answer.upper() != "YES":
@@ -337,6 +337,8 @@ def _action(pvnames_src=None, act="unknown", **kargs):
     for pvname in pvnames:
         if act == 'abort_pvs':
             result = archiver.abort_pv(pvname) 
+        elif act == 'change_pvs_archival_parameters':
+            result = archiver.update_pv(pvname, **kargs)
         elif act == 'pause_pvs':
             result = archiver.pause_pv(pvname) 
         elif act == 'resume_pvs':
@@ -429,13 +431,24 @@ def delete_pvs_only(pvnames_src=None):
 
 def delete_pvs_and_data(pvnames_src=None, **kargs):
     '''Delete each pv and its archived data if permission is allowed.
+    Two keyword arguments could be used: start_year=0, end_year=2019.
     pvnames_src(source where we get pvnames): 
     1) default is None: pvnames are currently paused PVs;
     2) a list of pv names: i.e. ['pv1', 'pv2'];
     3) filename: i.e. 'pause_pvs.txt', pv names should be listed as one column'''
     _action(pvnames_src=pvnames_src, act='delete_pvs_and_data', **kargs) 
 
+
+def change_pvs_archival_parameters(pvnames_src=None, **kargs):
+    '''Updates a PV archival parameters (sampling period, sampling method)'.
+    Two keyword arguments could be used: new_period=1.0, sampling_method='MONITOR'.
+    pvnames_src(source where we get pvnames): 
+    1) default is None: simply do nothing;
+    2) a list of pv names: i.e. ['pv1', 'pv2'];
+    3) filename: i.e. 'pause_pvs.txt', pv names should be listed as one column'''
+    _action(pvnames_src=pvnames_src, act='change_pvs_archival_parameters', **kargs) 
     
+        
 def get_reconnected_pvnames():
     '''Report those paused pv names, which are reconnected / online again.'''
     try:
