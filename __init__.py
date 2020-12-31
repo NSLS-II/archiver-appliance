@@ -12,17 +12,16 @@ except DistributionNotFound:
 
 __author__ = """Yong Hu"""
 __email__ = "yhu@bnl.gov"
-__all__ = ["get_pvnames_from_file", 
-            "get_pvs_file_info",
+
+__all__ = [ "report_never_connected_pvs",
+            "report_currently_disconnected_pvs",
+            "report_paused_pvs",
             "report_pvs",
             "report_all_pvs",
             "report_pvs_from_file",
             "report_waveform_pvs",
             "report_storage_rate",
             "report_storage_consumed",
-            "report_never_connected_pvs",
-            "report_currently_disconnected_pvs",
-            "report_paused_pvs",
             "report_overflow_pvs",
             "abort_pvs",
             "pause_pvs",

@@ -22,7 +22,8 @@ config.optionxform = str #keep keys as its original
 # user home directory settings will overwrite system config(/etc/...), 
 # system config will overwrite aa.conf in the current working directory
 aa_conf_user = os.path.expanduser('~/aa.conf')
-config.read(['aa.conf', '/etc/default/aa.conf', aa_conf_user])
+config.read([os.path.join(os.path.dirname(__file__), 'aa.conf'),
+              'pyAA/aa.conf', 'aa.conf', '/etc/default/aa.conf', aa_conf_user])
 aaconfig_dict = {}
 sections = config.sections()
 for section in sections:
@@ -34,17 +35,19 @@ by itself, make changes on aa.conf, then try again.")
 
 try:
     archiver = ArchiverAppliance(str(localhost))
-    print("{}: {}".format(localhost, archiver.version))
+    print("{}: {}\n".format(localhost, archiver.version))
 except:
     try:
         archiver = ArchiverAppliance(hostname=str(aaconfig_dict['Host']['Name']))
-        print(archiver.version)
+        print(archiver.version+"\n")
     except:
         print("Aborted: the Archiver server is not {} and it is not correctly \
 set in aa.conf (or /etc/default/aa.conf or {}.)\n".format(localhost, aa_conf_user))
         sys.exit("Please exit python/ipython shell if the shell does not exit \
 by itself. Make changes on aa.conf, then try again.")
 
+print("The long-term storage(lts) path in aa.conf is: {}. Please make sure it is\
+ correct".format(aaconfig_dict["Lts"]["Path"]))
 
 import subprocess
 log_dir = os.path.expanduser("~") + "/aa-script-logs"
@@ -107,7 +110,7 @@ def _get_pvnames(results, sort=True, do_return=True, **kargs):
         return pvnames
 
 
-def get_pvnames_from_file(filename='pvlist.txt'):
+def _get_pvnames_from_file(filename='pvlist.txt'):
     '''pvnames in 'filename' should be listed as one column'''
     with open(filename, "r") as fd:
         lines = fd.readlines()
@@ -125,7 +128,7 @@ def get_pvnames_from_file(filename='pvlist.txt'):
     return pvnames
 
 
-def get_pvs_file_info(pvnames, only_report_total_size=True,
+def _get_pvs_file_info(pvnames, only_report_total_size=True,
                       only_report_current_year=True,
                       lts_path=str(aaconfig_dict["Lts"]["Path"]), **kargs):
     '''- Get archived data file name and file size for each pvname in pvnames.
@@ -191,11 +194,13 @@ def report(report_type="", **kargs):
       3) filename='your-customized-text-file': used for report_pvs_from_file();
       4) pattern=something-like-'SR:C03-BI*': used for report_pvs();  
       5) regex='*': used for report_pvs();  
-      6) limit=max-number-of-pvs: for get_storage_rate_report(), etc.; 
+      6) limit=max-number-of-pvs: for report_storage_rate(), etc.; 
       7) one_line_per_pvinfo: if False, key & value per line in the log file;
       8) sort: if False, pv names are not sorted;
-      And the following can be used if log_file_info=True: lts_path,
-      only_report_total_size, only_report_current_year. '''
+    And the following can be used if log_file_info=True: 
+        lts_path: very important, you have to set the correct "Path" in aa.conf; 
+        only_report_total_size: if False, then all *.pb file sizes are logged; 
+        only_report_current_year: if False, then all .pb file names are logged.'''
     print("keyword arguments: {}".format(kargs))
     if report_type == 'never connected':
         results =  archiver.get_never_connected_pvs()
@@ -213,7 +218,7 @@ def report(report_type="", **kargs):
         results = archiver.get_all_pvs(pv=kargs.pop('pattern', '*'), 
             regex=kargs.pop('regex', '*'), limit=kargs.pop('limit', 1000))
     elif report_type == 'pvs from file':
-        results = get_pvnames_from_file(kargs.pop('filename', 'pvlist.txt'))
+        results = _get_pvnames_from_file(kargs.pop('filename', 'pvlist.txt'))
     elif report_type == 'overflow':
         results = archiver.get_overflow_report(limit=kargs.pop('limit',1000))        
                          
@@ -225,7 +230,7 @@ def report(report_type="", **kargs):
             _log(results, report_type + " details", **kargs)
     
     if kargs.pop('log_file_info', False):
-        info = get_pvs_file_info(pvnames, **kargs)
+        info = _get_pvs_file_info(pvnames, **kargs)
         _log(info[0], report_type + " pvs file info", **kargs)   
         if len(info[1]) > 0: 
             zero_size_pvnames = info[1]
@@ -240,7 +245,7 @@ def report(report_type="", **kargs):
 def report_pvs(**kargs):  
     '''Report pvs (number of pvs <= 'limit') based on 'pattern' and 'regex'. 
     See the function 'report' (type help(aa.report)) for all keyword arguments.'''
-    return report('search', pattern='*', regex='*', limit=1000, **kargs)     
+    return _report('search', **kargs)     
 
 
 def report_all_pvs(**kargs):
@@ -329,7 +334,7 @@ def _action(pvnames_src=None, act="unknown", **kargs):
     elif isinstance(pvnames_src, list):
         pvnames = pvnames_src
     else:
-        pvnames = get_pvnames_from_file(pvnames_src)
+        pvnames = _get_pvnames_from_file(pvnames_src)
     
     pvnames = _get_pvnames(pvnames) # sort pv names ... 
     if not pvnames:
@@ -365,7 +370,7 @@ def _action(pvnames_src=None, act="unknown", **kargs):
                     print("Aborted: start={}>end={}".format(start_year,end_year))
                     return
                     
-                (pvs_info, zero_names) = get_pvs_file_info([pvname], \
+                (pvs_info, zero_names) = _get_pvs_file_info([pvname], \
                                                 only_report_current_year=False)
                 pv_info = pvs_info[0]
                 years = pv_info[pvname+'(years)'].split()
@@ -439,7 +444,7 @@ def delete_pvs_only(pvnames_src=None):
 
 def delete_pvs_and_data(pvnames_src=None, **kargs):
     '''Delete each pv and its archived data if permission is allowed.
-    Two keyword arguments could be used: start_year=0, end_year=2019.
+    Two keyword arguments could be used: start_year=0, end_year=2017.
     pvnames_src(source where we get pvnames): 
     1) default is None: pvnames are currently paused PVs;
     2) a list of pv names: i.e. ['pv1', 'pv2'];
@@ -448,7 +453,7 @@ def delete_pvs_and_data(pvnames_src=None, **kargs):
 
 
 def change_pvs_archival_parameters(pvnames_src=None, **kargs):
-    '''Updates a PV archival parameters (sampling period, sampling method)'.
+    '''Update archival parameters (sampling period, sampling method)' of PVs.
     Two keyword arguments could be used: new_period=1.0, sampling_method='MONITOR'.
     pvnames_src(source where we get pvnames): 
     1) default is None: simply do nothing;
@@ -457,7 +462,7 @@ def change_pvs_archival_parameters(pvnames_src=None, **kargs):
     _action(pvnames_src=pvnames_src, act='change_pvs_archival_parameters', **kargs) 
     
         
-def get_reconnected_pvnames():
+def get_reconnected_pvnames(do_return=False):
     '''Report those paused pv names, which are reconnected / online again.'''
     try:
         from cothread.catools import connect
@@ -473,4 +478,6 @@ def get_reconnected_pvnames():
             pvnames.append(result.name)
     
     _log(pvnames, 'reconnected pvnames')
+    if do_return:
+        return pvnames
     
