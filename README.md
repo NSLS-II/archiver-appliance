@@ -22,11 +22,11 @@ some functions need to access the local data files (.pb files).
 
 Required python packages: requests, pandas.
 
-Open a terminal on the Achiver server, git clone this repository, type "cd pyAA".
+Open a terminal on the Achiver server, git clone this repository, then type "cd archiver-appliance".
 It is recommended that you should take a look at 'aa.conf' and make changes accordingly.
 After you are done with 'aa.conf', type "ipython" or "python", or other python shells: 
 
-    >>> import aa
+    >>> from pyAA import aa
     
     >>> help(aa)
     
@@ -50,6 +50,12 @@ the basic python shell which does not support the Tab key, then type "help(aa)".
 Always remember to type "help(aa.function_name)", i.e. help(aa.delete_pvs_and_data)
 if you look for advanced usages of a function provided by this package.
 
+You can install this package to the python system path (i.e./usr/local/lib/python*/dist-packages/)
+so that other people can use it. This is how to install this package locally (suppose 
+you are already in the directory "archiver-appliance"):
+
+    sudo python setup.py install
+    
 
 ==More info ...==
 

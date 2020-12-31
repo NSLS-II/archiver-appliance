@@ -2,3 +2,6 @@
 __pycache__
 *.txt
 *.sh
+build/
+dist/
+pyAA.egg-info/
