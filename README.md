@@ -18,12 +18,12 @@ python package is an easy-yet-powerful tool for you.
 
 Although you can use this package on any Linux computer which can talk to the Archiver
 server, it is recommended that you should use this package on the Archiver server because
-some functions need to access the local data file (.pb file).
+some functions need to access the local data files (.pb files).
 
-Required python packages: requests, pandas, urllib.
+Required python packages: requests, pandas.
 
 Open a terminal on the Achiver server, git clone this repository, type "cd pyAA".
-It is recommended that you should take a look at 'aa.conf' and make changes accordingly.   
+It is recommended that you should take a look at 'aa.conf' and make changes accordingly.
 After you are done with 'aa.conf', type "ipython" or "python", or other python shells: 
 
     >>> import aa
