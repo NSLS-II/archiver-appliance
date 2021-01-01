@@ -31,7 +31,7 @@ for section in sections:
 if not aaconfig_dict:
     print("Aborted: no aa.conf found or something wrong inside aa.conf")
     sys.exit("Please exit python/ipython shell if the shell does not exit \
-by itself, make changes on aa.conf, then try again.")
+by itself, make changes on pyAA/aa.conf, then try again.")
 
 try:
     archiver = ArchiverAppliance(str(localhost))
@@ -44,10 +44,10 @@ except:
         print("Aborted: the Archiver server is not {} and it is not correctly \
 set in aa.conf (or /etc/default/aa.conf or {}.)\n".format(localhost, aa_conf_user))
         sys.exit("Please exit python/ipython shell if the shell does not exit \
-by itself. Make changes on aa.conf, then try again.")
+by itself. Make changes on pyAA/aa.conf, then try again.")
 
-print("The long-term storage(lts) path in aa.conf is: {}. Please make sure it is\
- correct".format(aaconfig_dict["Lts"]["Path"]))
+print("The long-term storage(lts) path in pyAA/aa.conf is: {}. Please make sure \
+it is correct".format(aaconfig_dict["Lts"]["Path"]))
 
 import subprocess
 log_dir = os.path.expanduser("~") + "/aa-script-logs"
@@ -80,9 +80,11 @@ def _log(results, file_prefix, one_line_per_pvinfo=True, **kargs):
                 fd.write("\n")
 
     print("{} PV items have been written to {}.".format(len(results), file_name))
+    if isinstance(results[0], unicode) or isinstance(results[0], str):
+        print("")
     if isinstance(results[0], odict) or isinstance(results[0], dict):
         print("Use MS Excel or OpenOffice Spreadsheet(Insert Sheet from File ...) \
-to open the txt file for better viewing. \n")
+to open the txt file above for better viewing. \n")
 
 
 def _get_pvnames(results, sort=True, do_return=True, **kargs):
@@ -100,7 +102,7 @@ def _get_pvnames(results, sort=True, do_return=True, **kargs):
         pvnames.sort()
 
     if len(pvnames) > 10:
-        pvs_4print=pvnames[:9]
+        pvs_4print=pvnames[:10]
     else:
         pvs_4print=pvnames
     for pv in pvs_4print:
@@ -136,10 +138,11 @@ def _get_pvs_file_info(pvnames, only_report_total_size=True,
     pvname = "SR-RF{CFD:2-Cav}E:I"; relative_path = 'SR/RF/CFD/2/Cav/E/I';
     pb_file: lts_path/SR/RF/CFD/2/Cav/E/I:2016.pb. '''
     if not os.path.isdir(lts_path):
-        print("Aborted: the long-term storage(lts) path '{}' seems not correct,\
-please reconfigure it in aa.conf".format(lts_path))
+        print("Aborted: the long-term storage(lts) path '{}:{}' seems not \
+available. Please make sure pyAA is running on the Archiver server. Also please \
+verify settings in pyAA/aa.conf".format(localhost, lts_path))
         sys.exit("Please exit python/ipython shell if the shell does not exit \
-by itself. Make changes on aa.conf, then try again.")
+by itself. Make changes on pyAA/aa.conf, then try again.")
 
     pvs_file_info = []
     zero_size_pvnames = []
@@ -202,7 +205,7 @@ def report(report_type="", **kargs):
         lts_path: very important, you have to set the correct "Path" in aa.conf; 
         only_report_total_size: if False, then all *.pb file sizes are logged; 
         only_report_current_year: if False, then all .pb file names are logged.'''
-    print("keyword arguments: {}".format(kargs))
+    #print("keyword arguments: {}".format(kargs))
     if report_type == 'never connected':
         results =  archiver.get_never_connected_pvs()
     elif report_type == 'currently disconnected':
@@ -246,7 +249,7 @@ def report(report_type="", **kargs):
 def report_pvs(**kargs):  
     '''Report pvs (number of pvs <= 'limit') based on 'pattern' and 'regex'. 
     See the function 'report' (type help(aa.report)) for all keyword arguments.'''
-    return _report('search', **kargs)     
+    return report('search', **kargs)     
 
 
 def report_all_pvs(**kargs):
@@ -336,8 +339,9 @@ def _action(pvnames_src=None, act="unknown", **kargs):
         pvnames = pvnames_src
     else:
         pvnames = _get_pvnames_from_file(pvnames_src)
-    
-    pvnames = _get_pvnames(pvnames) # sort pv names ... 
+        
+    if pvnames_src is not None:
+        pvnames = _get_pvnames(pvnames) # sort pv names ... 
     if not pvnames:
         return
         

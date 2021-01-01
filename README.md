@@ -73,7 +73,7 @@ You could use various keyword arguments to change the default behavior of a func
     to a text file if set True. The file could be easily viewed and analyzed by 
     MS Excel or OpenOffice Spreadsheet(Insert Sheet from File ...).
         
-    3) filename='your-customized-text-file': this argument can be used in 
+    3) filename='/path/to/pvlist.txt': this argument can be used in 
     report_pvs_from_file() and all "action" functions including abort_pvs(), 
     pause_pvs(), delete_pvs_and_data(), etc. You should give a valid path to the file. 
     
