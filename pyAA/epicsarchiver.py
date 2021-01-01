@@ -20,6 +20,7 @@ except ImportError:
     import urlparse #py2
 import requests
 import pandas as pd
+from datetime import datetime
 import utils
 
 # the following three libraries can be used to solve
@@ -373,8 +374,6 @@ class ArchiverAppliance:
 
     def get_data(self, pv, start, end):
         """Retrieve archived data
-        (yhu-2020-Dec-22: it does not work; 
-        TypeError: 'timespec' is an invalid keyword argument for this function)
 
         :param pv: name of the pv.
         :param start: start time. Can be a string or `datetime.datetime` object.
@@ -387,14 +386,24 @@ class ArchiverAppliance:
             "from": utils.format_date(start),
             "to": utils.format_date(end),
         }
-        r = self.get(self.data_url, params=params)
         try:
-            data = r.json()
+            r = self.get(self.data_url, params=params)
+            data = self._return_json(r)
         except:
-            data = r.json
+            url = self.data_url + "?pv=" + urllib.quote_plus(pv) + '&' + \
+urllib.urlencode({"from":utils.format_date(start), "to":utils.format_date(end)})
+            print(url)
+            req = urllib2.urlopen(url)
+            data = json.load(req)
+            #data = self.request_by_urllib2(url)
         df = pd.DataFrame(data[0]["data"])
+        #print(df)
         try:
-            df["date"] = pd.to_datetime(df["secs"] + df["nanos"] * 1e-9, unit="s")
+            if pd.__version__ > '0.8.0':
+                df["date"] = pd.to_datetime(df["secs"] + df["nanos"] * 1e-9, unit="s")
+            else:
+                df["date"] = pd.to_datetime([datetime.fromtimestamp(x["secs"] + \
+                                x["nanos"] * 1e-9,) for x in data[0]["data"]])
         except KeyError:
             # Empty data
             pass

@@ -1,6 +1,6 @@
 ==Introduction==
 
-This package provides a bunch of python functions to manage Archiver Appliance (AA).
+This package, pyAA, provides a bunch of python functions to manage Archiver Appliance (AA).
 It has been tested under both python 2 and python 3.
 
 The Archiver itself provides an easy-to-use web interface where you can view and 
@@ -20,7 +20,8 @@ Although you can use this package on any Linux computer which can talk to the Ar
 server, it is recommended that you should use this package on the Archiver server because
 some functions need to access the local data files (.pb files).
 
-Required python packages: requests, pandas.
+Required python packages: requests, pandas. It is recommended that you should install 
+these dependencies before you use pyAA.  
 
 Open a terminal on the Achiver server, git clone this repository, then type "cd archiver-appliance".
 It is recommended that you should take a look at 'aa.conf' and make changes accordingly.

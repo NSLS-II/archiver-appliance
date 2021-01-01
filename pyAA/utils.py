@@ -18,7 +18,10 @@ def format_date(date_or_str):
         dt = parser.parse(date_or_str, ignoretz=True)
     else:
         dt = date_or_str
-    return dt.isoformat(timespec="microseconds") + "Z"
+    try:
+        return dt.isoformat(timespec="microseconds") + "Z"
+    except:
+        return dt.isoformat() + "Z"
 
 
 def parse_archive_file(filename, appliance=None):
