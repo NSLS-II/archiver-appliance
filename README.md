@@ -24,7 +24,7 @@ Required python packages: requests, pandas. It is recommended that you should in
 these dependencies before you use pyAA.  
 
 Open a terminal on the Achiver server, git clone this repository, then type "cd archiver-appliance".
-It is recommended that you should take a look at 'aa.conf' and make changes accordingly.
+It is recommended that you should take a look at 'pyAA/aa.conf' and make changes accordingly.
 After you are done with 'aa.conf', type "ipython" or "python", or other python shells: 
 
     >>> from pyAA import aa

@@ -80,7 +80,8 @@ def _log(results, file_prefix, one_line_per_pvinfo=True, **kargs):
                 fd.write("\n")
 
     print("{} PV items have been written to {}.".format(len(results), file_name))
-    print("Use MS Excel or OpenOffice Spreadsheet(Insert Sheet from File ...) \
+    if isinstance(results[0], odict) or isinstance(results[0], dict):
+        print("Use MS Excel or OpenOffice Spreadsheet(Insert Sheet from File ...) \
 to open the txt file for better viewing. \n")
 
 
@@ -191,7 +192,7 @@ def report(report_type="", **kargs):
     Supported keyword arguments:
       1) do_return=True: return pv names only; can be used for all report_*(); 
       2) log_file_info=True: write pvs' file info (name, size, etc.) to a file;
-      3) filename='your-customized-text-file': used for report_pvs_from_file();
+      3) filename='/path/to/pvlist.txt': used for report_pvs_from_file();
       4) pattern=something-like-'SR:C03-BI*': used for report_pvs();  
       5) regex='*': used for report_pvs();  
       6) limit=max-number-of-pvs: for report_storage_rate(), etc.; 
@@ -411,8 +412,8 @@ def abort_pvs(pvnames_src=None):
     '''Abort each pv in 'pvnames_src' if permission is allowed.
     pvnames_src(source where we get pvnames): 
     1) default is None: pvnames are never connected PVs;
-    2) a list of pv names: i.e. ['pv1', 'pv2'];
-    3) filename: i.e. 'pause_pvs.txt', pv names should be listed as one column'''
+    2) a list of pv names: e.g. ['pv1', 'pv2'];
+    3) filename: e.g. '/path/to/pvlist.txt', pvnames should be listed as one column.'''
     _action(pvnames_src=pvnames_src, act='abort_pvs')
 
 
@@ -420,16 +421,16 @@ def pause_pvs(pvnames_src=None):
     '''Pause each pv in 'pvnames_src' if permission is allowed.
     pvnames_src(source where we get pvnames): 
     1) default is None: pvnames are currently disconnected PVs;
-    2) a list of pv names: i.e. ['pv1', 'pv2'];
-    3) filename: i.e. 'pause_pvs.txt', pv names should be listed as one column'''
+    2) a list of pv names: e.g. ['pv1', 'pv2'];
+    3) filename: e.g. '/path/to/pvlist.txt', pvnames should be listed as one column.'''
     _action(pvnames_src=pvnames_src, act='pause_pvs') 
 
 def resume_pvs(pvnames_src=None):
     '''Resume each pv in 'pvnames_src' if permission is allowed.
     pvnames_src(source where we get pvnames): 
     1) default is None: pvnames are currently paused PVs;
-    2) a list of pv names: i.e. ['pv1', 'pv2'];
-    3) filename: i.e. 'pause_pvs.txt', pv names should be listed as one column'''
+    2) a list of pv names: e.g. ['pv1', 'pv2'];
+    3) filename: e.g. '/path/to/pvlist.txt', pvnames should be listed as one column.'''
     _action(pvnames_src=pvnames_src, act='resume_pvs') 
 
 
@@ -437,8 +438,8 @@ def delete_pvs_only(pvnames_src=None):
     '''Delete each pv in 'pvnames_src' if permission is allowed. No data deleted.
     pvnames_src(source where we get pvnames): 
     1) default is None: pvnames are currently paused PVs;
-    2) a list of pv names: i.e. ['pv1', 'pv2'];
-    3) filename: i.e. 'pause_pvs.txt', pv names should be listed as one column'''
+    2) a list of pv names: e.g. ['pv1', 'pv2'];
+    3) filename: e.g. '/path/to/pvlist.txt', pvnames should be listed as one column.'''
     _action(pvnames_src=pvnames_src, act='delete_pvs_only') 
 
 
@@ -447,8 +448,8 @@ def delete_pvs_and_data(pvnames_src=None, **kargs):
     Two keyword arguments could be used: start_year=0, end_year=2017.
     pvnames_src(source where we get pvnames): 
     1) default is None: pvnames are currently paused PVs;
-    2) a list of pv names: i.e. ['pv1', 'pv2'];
-    3) filename: i.e. 'pause_pvs.txt', pv names should be listed as one column'''
+    2) a list of pv names: e.g. ['pv1', 'pv2'];
+    3) filename: e.g. '/path/to/pvlist.txt', pvnames should be listed as one column.'''
     _action(pvnames_src=pvnames_src, act='delete_pvs_and_data', **kargs) 
 
 
@@ -457,8 +458,8 @@ def change_pvs_archival_parameters(pvnames_src=None, **kargs):
     Two keyword arguments could be used: new_period=1.0, sampling_method='MONITOR'.
     pvnames_src(source where we get pvnames): 
     1) default is None: simply do nothing;
-    2) a list of pv names: i.e. ['pv1', 'pv2'];
-    3) filename: i.e. 'pause_pvs.txt', pv names should be listed as one column'''
+    2) a list of pv names: e.g. ['pv1', 'pv2'];
+    3) filename: e.g. '/path/to/pvlist.txt', pvnames should be listed as one column.'''
     _action(pvnames_src=pvnames_src, act='change_pvs_archival_parameters', **kargs) 
     
         
