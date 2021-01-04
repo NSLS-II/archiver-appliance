@@ -45,7 +45,7 @@ After you are done with 'aa.conf', type "ipython" or "python", or other python s
     
     >>> aa.delete_pvs_and_data()
 
-Basically, just as a common practice, after you do "import aa", you should type 
+Basically, just as a common practice, after you do "from pyAA import aa", you should type 
 "aa.", then use the Tab key to see a list of aa.* if you use ipython. If you use
 the basic python shell which does not support the Tab key, then type "help(aa)".
 Always remember to type "help(aa.function_name)", i.e. help(aa.delete_pvs_and_data)
@@ -64,18 +64,16 @@ Most functions in this package have default arguments to get default behaviors.
 You could use various keyword arguments to change the default behavior of a function.
   
     1) do_return=True: return pv names (only pv names) if set True (default is False), 
-    i.e. pvnames = aa.report_currently_disconnected_pvs() --> pvnames is a list of 
-    currently disconnected pv names. 
-    
-    This argument can be used for all report_*() functions; 
+    i.e. pvnames = aa.report_never_connected_pvs(do_return=True) --> pvnames is a list of 
+    never connected pv names. This argument can be used for all report_*() functions; 
     
     2) log_file_info=True: write archived data file info (file name, file size, etc.) 
     to a text file if set True. The file could be easily viewed and analyzed by 
-    MS Excel or OpenOffice Spreadsheet(Insert Sheet from File ...).
+    MS Excel or OpenOffice Spreadsheet(Insert Sheet from File ...);
         
     3) filename='/path/to/pvlist.txt': this argument can be used in 
     report_pvs_from_file() and all "action" functions including abort_pvs(), 
-    pause_pvs(), delete_pvs_and_data(), etc. You should give a valid path to the file. 
+    pause_pvs(), delete_pvs_and_data(), etc. You should give a valid path to the file; 
     
     4) pattern=something-like-'SR:C03-BI*': mainly used for report_pvs(); 
      
