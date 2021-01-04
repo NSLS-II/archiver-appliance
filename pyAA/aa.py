@@ -352,6 +352,8 @@ def _action(pvnames_src=None, act="unknown", **kargs):
         
     results = []
     valid_pvnames = []
+    start_year = kargs.pop('start_year', 0)
+    end_year = kargs.pop('end_year', 0)
     for pvname in pvnames:
         if act == 'abort_pvs':
             result = archiver.abort_pv(pvname) 
@@ -365,8 +367,6 @@ def _action(pvnames_src=None, act="unknown", **kargs):
             result = archiver.pause_pv(pvname) 
             result = archiver.delete_pv(pvname, delete_data=False) 
         elif act == 'delete_pvs_and_data':
-            start_year = kargs.pop('start_year', 0)
-            end_year = kargs.pop('end_year', 0)
             if end_year <= 0: # by default, delete all data
                 result = archiver.delete_pv(pvname, delete_data=True)
             else: # if end_year > 0, delete files from start_year to end_year
@@ -381,10 +381,14 @@ def _action(pvnames_src=None, act="unknown", **kargs):
                 years = pv_info[pvname+'(years)'].split()
                 if not years:
                     print("%s: no .pb files"%pvname)
-                    result = archiver.pause_pv(pvname)
-                    result = archiver.delete_pv(pvname, delete_data=False)
+                    try:
+                        result = archiver.pause_pv(pvname)
+                        result = archiver.delete_pv(pvname, delete_data=False)
+                    except:
+                        pass                
+                if not years:
                     continue
-                    
+                        
                 oldest = int(min(years))     
                 newest = int(max(years))
                 if oldest > end_year or newest < start_year:
@@ -396,9 +400,9 @@ def _action(pvnames_src=None, act="unknown", **kargs):
                 for i in range(len(years)):
                     if start_year <= int(years[i]) <= end_year:
                         subprocess.call(['sudo', 'rm', '-f', file_names[i]])
-                if not os.path.isfile(file_names[0]): # .pb file has been deleted
-                    result = archiver.pause_pv(pvname)
-                    result = archiver.delete_pv(pvname, delete_data=False)
+                #if not os.path.isfile(file_names[0]): # .pb file has been deleted
+                result = archiver.pause_pv(pvname)
+                result = archiver.delete_pv(pvname, delete_data=False)
                                                       
         results.append(result)
         try:
